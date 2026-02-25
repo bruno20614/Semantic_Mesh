@@ -12,3 +12,4 @@
 
 pkg/
 venv/
+node_modules/

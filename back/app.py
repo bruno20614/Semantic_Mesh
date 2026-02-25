@@ -14,8 +14,8 @@ app = FastAPI(title="Semantic Mesh API")
 app.add_middleware(SessionMiddleware, secret_key="chave_secreta_super_segura_aqui")
 
 # Configurando as pastas de arquivos estáticos e templates HTML
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="../front/static"), name="static")
+templates = Jinja2Templates(directory="../front/templates")
 
 # Inicializa o banco de dados
 def init_db():
