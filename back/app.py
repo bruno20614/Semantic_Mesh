@@ -10,7 +10,6 @@ app = FastAPI(title="Semantic Mesh API")
 app.add_middleware(SessionMiddleware, secret_key="chave_secreta_super_segura_aqui")
 app.mount("/static", StaticFiles(directory="../front/static"), name="static")
 
-# Inicializa o banco de dados
 import sqlite3
 def init_db():
     conn = sqlite3.connect('database.db')

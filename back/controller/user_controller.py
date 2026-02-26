@@ -112,7 +112,8 @@ async def update_user(
 
 @router.delete("/user")
 async def delete_user(
-    username: str = Form(...),
+    id: int = Form(None),
+    username: str = Form(None),
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     token = credentials.credentials
@@ -120,12 +121,16 @@ async def delete_user(
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
     db = SessionLocal()
-    user = db.query(User).filter(User.username == username).first()
+    user = None
+    if id is not None:
+        user = db.query(User).filter(User.id == id).first()
+    elif username is not None:
+        user = db.query(User).filter(User.username == username).first()
     if user:
         db.delete(user)
         db.commit()
         db.close()
-        return {"msg": f"Usuário {username} deletado com sucesso!"}
+        return {"msg": "Usuário deletado com sucesso!"}
     db.close()
     return {"msg": "Usuário não encontrado!"}
 
@@ -144,3 +149,16 @@ async def get_users(credentials: HTTPAuthorizationCredentials = Depends(security
     users = db.query(User).all()
     db.close()
     return {"users": [{"id": u.id, "username": u.username} for u in users]}
+
+@router.get("/user/{id}")
+async def get_user_by_id(id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    payload = verify_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == id).first()
+    db.close()
+    if user:
+        return {"id": user.id, "username": user.username}
+    return {"msg": "Usuário não encontrado!"}
