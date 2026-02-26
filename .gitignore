@@ -13,3 +13,5 @@
 pkg/
 venv/
 node_modules/
+__pycache__/
+backend/__pycache__/
