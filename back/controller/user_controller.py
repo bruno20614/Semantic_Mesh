@@ -67,7 +67,7 @@ async def logout(request: Request):
     return RedirectResponse(url="/", status_code=302)
 
 
-# Criar usuário (sem proteção JWT)
+
 @router.post("/user")
 async def create_user(
     username: str = Form(...),
@@ -81,30 +81,35 @@ async def create_user(
     else:
         return {"msg": "Erro ao criar usuário."}
 
-# Atualizar usuário (protegido por JWT)
+
 from fastapi import Depends
 security = HTTPBearer()
 
 @router.put("/user")
 async def update_user(
-    username: str = Form(...),
-    password: str = Form(...),
+    id: int = Form(...),
+    username: str = Form(None),
+    password: str = Form(None),
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     token = credentials.credentials
     payload = verify_access_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
-    # Exemplo: atualizar senha do usuário
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    hashed_password = generate_password_hash(password)
-    c.execute("UPDATE users SET password = ? WHERE username = ?", (hashed_password, username))
-    conn.commit()
-    conn.close()
-    return {"msg": f"Usuário {username} atualizado com sucesso!"}
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        db.close()
+        return {"msg": "Usuário não encontrado!"}
+    if username:
+        user.username = username
+    if password:
+        user.password = generate_password_hash(password)
+    db.commit()
+    db.close()
+    return {"msg": f"Usuário {id} atualizado com sucesso!"}
 
-# Deletar usuário (protegido por JWT)
+
 @router.delete("/user")
 async def delete_user(
     username: str = Form(...),
@@ -114,15 +119,20 @@ async def delete_user(
     payload = verify_access_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM users WHERE username = ?", (username,))
-    conn.commit()
-    conn.close()
-    return {"msg": f"Usuário {username} deletado com sucesso!"}
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == username).first()
+    if user:
+        db.delete(user)
+        db.commit()
+        db.close()
+        return {"msg": f"Usuário {username} deletado com sucesso!"}
+    db.close()
+    return {"msg": "Usuário não encontrado!"}
 
-# Listar todos os usuários (protegido por JWT)
+
 import sqlite3
+
+from service.orm import SessionLocal, User
 
 @router.get("/users")
 async def get_users(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -130,8 +140,7 @@ async def get_users(credentials: HTTPAuthorizationCredentials = Depends(security
     payload = verify_access_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    users = c.execute("SELECT id, username FROM users").fetchall()
-    conn.close()
-    return {"users": [{"id": u[0], "username": u[1]} for u in users]}
+    db = SessionLocal()
+    users = db.query(User).all()
+    db.close()
+    return {"users": [{"id": u.id, "username": u.username} for u in users]}

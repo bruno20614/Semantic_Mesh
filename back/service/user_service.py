@@ -1,13 +1,12 @@
-import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from service.orm import SessionLocal, User
 
 def get_user_by_username_service(username):
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    user = c.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-    conn.close()
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == username).first()
+    db.close()
     if user:
-        return {"id": user[0], "username": user[1], "password": user[2]}
+        return {"id": user.id, "username": user.username, "password": user.password}
     return None
 
 def login_user_service(username, password):
@@ -18,15 +17,16 @@ def login_user_service(username, password):
 
 def register_user_service(username, password):
     hashed_password = generate_password_hash(password)
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
+    db = SessionLocal()
     try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
-        conn.commit()
+        user = User(username=username, password=hashed_password)
+        db.add(user)
+        db.commit()
         return "success"
-    except sqlite3.IntegrityError:
-        return "exists"
-    except Exception:
+    except Exception as e:
+        db.rollback()
+        if "unique constraint" in str(e).lower():
+            return "exists"
         return "error"
     finally:
-        conn.close()
+        db.close()
