@@ -16,13 +16,25 @@ async def login_get(request: Request):
         return RedirectResponse(url="/dashboard", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request})
 
+from fastapi import Header, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from service.jwt_service import create_access_token, verify_access_token
+from fastapi.responses import JSONResponse
+
 @router.post("/")
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     user = login_user_service(username, password)
     if user:
+        access_token = create_access_token({"user_id": user['id'], "username": user['username']})
         request.session['user_id'] = user['id']
         request.session['username'] = user['username']
-        return RedirectResponse(url="/dashboard", status_code=302)
+        request.session['jwt'] = access_token
+        # Detecta se é requisição de navegador (HTML) ou API
+        accept = request.headers.get('accept', '')
+        if 'text/html' in accept:
+            return RedirectResponse(url="/dashboard", status_code=302)
+        else:
+            return JSONResponse({"access_token": access_token})
     else:
         return templates.TemplateResponse("login.html", {"request": request, "error": "Usuário ou senha incorretos."})
 
@@ -53,3 +65,73 @@ async def dashboard(request: Request):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/", status_code=302)
+
+
+# Criar usuário (sem proteção JWT)
+@router.post("/user")
+async def create_user(
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    result = register_user_service(username, password)
+    if result == "success":
+        return {"msg": f"Usuário {username} criado com sucesso!"}
+    elif result == "exists":
+        return {"msg": "Usuário já existe!"}
+    else:
+        return {"msg": "Erro ao criar usuário."}
+
+# Atualizar usuário (protegido por JWT)
+from fastapi import Depends
+security = HTTPBearer()
+
+@router.put("/user")
+async def update_user(
+    username: str = Form(...),
+    password: str = Form(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+    payload = verify_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
+    # Exemplo: atualizar senha do usuário
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    hashed_password = generate_password_hash(password)
+    c.execute("UPDATE users SET password = ? WHERE username = ?", (hashed_password, username))
+    conn.commit()
+    conn.close()
+    return {"msg": f"Usuário {username} atualizado com sucesso!"}
+
+# Deletar usuário (protegido por JWT)
+@router.delete("/user")
+async def delete_user(
+    username: str = Form(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+    payload = verify_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+    return {"msg": f"Usuário {username} deletado com sucesso!"}
+
+# Listar todos os usuários (protegido por JWT)
+import sqlite3
+
+@router.get("/users")
+async def get_users(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    payload = verify_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token JWT inválido")
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    users = c.execute("SELECT id, username FROM users").fetchall()
+    conn.close()
+    return {"users": [{"id": u[0], "username": u[1]} for u in users]}
