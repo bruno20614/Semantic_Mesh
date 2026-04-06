@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Documentos da Organização - Semantic Mesh</title>
+    <link href="/static/output.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
+    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
+        <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
+        <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
+    </nav>
+    <div class="container mx-auto mt-16 p-8">
+        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-extrabold text-blue-700">Documentos da Organização: {{ org.name }}</h2>
+                <a href="/organizations/{{ org.id }}/documents/add" style="background: #22c55e; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; display: inline-block; box-shadow: 0 2px 8px rgba(34,197,94,0.12); text-decoration: none;">Adicionar Documento</a>
+            </div>
+            {% if documents|length == 0 %}
+                <p class="text-gray-600">Nenhum documento cadastrado para esta organização.</p>
+            {% else %}
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Upload</th>
+                        <th class="px-6 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for doc in documents %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ doc.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ doc.uploaded_at.strftime('%d/%m/%Y %H:%M') if doc.uploaded_at else '' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap flex gap-2">
+    <form method="POST" action="/organizations/{{ org.id }}/documents/{{ doc.id }}/delete" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja remover este documento?');">
+    <button type="submit" style="background: #ef4444; color: #fff; font-weight: bold; padding: 0.3rem 0.9rem; border-radius: 0.4rem; border: none; box-shadow: 0 2px 8px rgba(239,68,68,0.12); cursor: pointer;">Remover</button>
+</form>
+</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

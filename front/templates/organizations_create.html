@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Criar Organização - Semantic Mesh</title>
+    <link href="/static/output.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
+    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
+    <div class="flex items-center gap-6">
+    <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
+    <div style="margin-left: 2.5rem; display: flex; gap: 0.7rem;">
+        <a href="/dashboard" style="background: #2563eb; color: #fff; font-weight: 600; padding: 0.18rem 0.7rem; border-radius: 0.4rem; display: inline-block; box-shadow: 0 1px 4px rgba(37,99,235,0.10); text-decoration: none; font-size: 0.92rem;">Dashboard</a>
+        <a href="/organizations" style="background: #8b5cf6; color: #fff; font-weight: 600; padding: 0.18rem 0.7rem; border-radius: 0.4rem; display: inline-block; box-shadow: 0 1px 4px rgba(139,92,246,0.10); text-decoration: none; font-size: 0.92rem;">Organizações</a>
+    </div>
+</div>
+    <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
+</nav>
+    <div class="container mx-auto mt-16 p-8">
+        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-extrabold text-blue-700">Criar Nova Organização</h2>
+                <a href="/organizations" class="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition">Voltar</a>
+            </div>
+            {% if message %}
+                <div class="mb-4 p-4 rounded {{ 'bg-green-100 text-green-800' if success else 'bg-red-100 text-red-800' }}">
+                    {{ message }}
+                </div>
+            {% endif %}
+            <form method="post" class="space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Nome da Organização</label>
+                    <input type="text" name="name" id="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">Criar</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

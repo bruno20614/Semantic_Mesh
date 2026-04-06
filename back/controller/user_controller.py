@@ -23,13 +23,12 @@ from fastapi.responses import JSONResponse
 
 @router.post("/")
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
-    user = login_user_service(username, password)
-    if user:
-        access_token = create_access_token({"user_id": user['id'], "username": user['username']})
+    user = get_user_by_username_service(username)
+    if user and check_password_hash(user['password_hash'], password):
+        access_token = create_access_token({"user_id": str(user['id']), "email": user['email']})
         request.session['user_id'] = user['id']
-        request.session['username'] = user['username']
+        request.session['email'] = user['email']
         request.session['jwt'] = access_token
-        # Detecta se é requisição de navegador (HTML) ou API
         accept = request.headers.get('accept', '')
         if 'text/html' in accept:
             return RedirectResponse(url="/dashboard", status_code=302)
@@ -43,8 +42,8 @@ async def register_get(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @router.post("/register")
-async def register_post(request: Request, username: str = Form(...), password: str = Form(...)):
-    result = register_user_service(username, password)
+async def register_post(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...)):
+    result = register_user_service(name, email, password)
     if result == "success":
         return templates.TemplateResponse("login.html", {"request": request, "success": "Cadastro realizado com sucesso! Faça login."})
     elif result == "exists":
@@ -52,14 +51,32 @@ async def register_post(request: Request, username: str = Form(...), password: s
     else:
         return templates.TemplateResponse("register.html", {"request": request, "error": "Erro ao cadastrar."})
 
+from service.orm import SessionLocal, Organization, UserOrganization
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     if 'user_id' not in request.session:
         return RedirectResponse(url="/", status_code=302)
+    db = SessionLocal()
+    user_id = request.session['user_id']
+    # Organizações do usuário
+    from service.orm import UserOrganization, Organization
+    org_ids = [uo.organization_id for uo in db.query(UserOrganization).filter(UserOrganization.user_id == user_id).all()]
+    organizations = db.query(Organization).filter(Organization.id.in_(org_ids)).all()
+    active_org_id = request.session.get('active_org_id')
+    db.close()
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "username": request.session['username']
+        "email": request.session['email'],
+        "organizations": organizations,
+        "active_org_id": active_org_id
     })
+
+@router.post("/set_active_org")
+async def set_active_org(request: Request, active_org: str = Form(...)):
+    request.session['active_org_id'] = active_org
+    return RedirectResponse(url="/dashboard", status_code=302)
+
 
 @router.get("/logout")
 async def logout(request: Request):
@@ -148,7 +165,7 @@ async def get_users(credentials: HTTPAuthorizationCredentials = Depends(security
     db = SessionLocal()
     users = db.query(User).all()
     db.close()
-    return {"users": [{"id": u.id, "username": u.username} for u in users]}
+    return {"users": [{"id": u.id, "name": u.name, "email": u.email} for u in users]}
 
 @router.get("/user/{id}")
 async def get_user_by_id(id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -160,5 +177,5 @@ async def get_user_by_id(id: int, credentials: HTTPAuthorizationCredentials = De
     user = db.query(User).filter(User.id == id).first()
     db.close()
     if user:
-        return {"id": user.id, "username": user.username}
+        return {"id": user.id, "name": user.name, "email": user.email}
     return {"msg": "Usuário não encontrado!"}

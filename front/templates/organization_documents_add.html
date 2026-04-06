@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Adicionar Documento - Semantic Mesh</title>
+    <link href="/static/output.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
+    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
+        <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
+        <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
+    </nav>
+    <div class="container mx-auto mt-16 p-8">
+        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-extrabold text-blue-700">Adicionar Documento para {{ org.name }}</h2>
+                <a href="/organizations/{{ org.id }}/documents" style="background: #6366f1; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; display: inline-block; text-decoration: none; margin-left: 1rem;">Voltar</a>
+            </div>
+            {% if message %}
+                <div class="mb-4 p-4 rounded {{ 'bg-green-100 text-green-800' if success else 'bg-red-100 text-red-800' }}">
+                    {{ message }}
+                </div>
+            {% endif %}
+            <form method="post" enctype="multipart/form-data" id="uploadForm" class="space-y-6">
+    <div id="dropzone" style="border: 2px dashed #22c55e; border-radius: 1rem; background: #f0fdf4; padding: 2.5rem; text-align: center; cursor: pointer; transition: border 0.2s;">
+        <span style="color: #22c55e; font-weight: bold; font-size: 1.1rem;">Arraste e solte o documento aqui ou clique para selecionar</span>
+        <input type="file" name="file" id="file" required accept=".pdf,.docx,.txt" style="display: none;">
+    </div>
+    <button type="submit" style="background: #22c55e; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; display: inline-block; margin-top: 1rem;">Enviar</button>
+</form>
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.style.border = '2px solid #16a34a';
+});
+dropzone.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dropzone.style.border = '2px dashed #22c55e';
+});
+dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.style.border = '2px dashed #22c55e';
+    if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+    }
+});
+</script>
+        </div>
+    </div>
+</body>
+</html>
