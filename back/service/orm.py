@@ -21,14 +21,24 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    organizations = relationship('UserOrganization', back_populates='user')
+    organizations = relationship(
+        'UserOrganization',
+        back_populates='user',
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
 class Organization(Base):
     __tablename__ = "organizations"
     id = Column(UUID(as_uuid=True), primary_key=True, default=generate_uuid)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    users = relationship('UserOrganization', back_populates='organization')
+    users = relationship(
+        'UserOrganization',
+        back_populates='organization',
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
 class UserOrganization(Base):
     __tablename__ = "user_organization"
