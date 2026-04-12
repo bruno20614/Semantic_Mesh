@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
+import json
 import os
 from controller.user_controller import router as user_router
 
@@ -25,6 +27,12 @@ from controller.analysis_controller import router as analysis_router
 app.include_router(user_router)
 app.include_router(organization_router)
 app.include_router(analysis_router)
+
+# Registra filtros customizados no ambiente Jinja2 de todos os controllers
+from controller import analysis_controller, organization_controller, user_controller
+for ctrl in [analysis_controller, organization_controller, user_controller]:
+    ctrl.templates.env.filters['enumerate'] = enumerate
+    ctrl.templates.env.filters['tojson'] = lambda v: json.dumps(v, ensure_ascii=False, default=str)
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)

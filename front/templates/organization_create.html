@@ -4,30 +4,32 @@
     <meta charset="UTF-8">
     <title>Criar Organização - Semantic Mesh</title>
     <link href="/static/output.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
-    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
-        <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
-        <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
+    <nav class="sm-nav">
+        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <div class="sm-nav-links">
+            <a href="/organizations" class="sm-nav-link">Organizações</a>
+            <a href="/logout" class="sm-nav-link danger">Sair</a>
+        </div>
     </nav>
-    <div class="container mx-auto mt-16 p-8">
-        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in max-w-lg mx-auto">
-            <h2 class="text-3xl font-extrabold text-blue-700 mb-6">Nova Organização</h2>
+    <div class="container mx-auto px-6">
+        <div class="sm-card sm-card-sm sm-fade mx-auto">
+            <h2 class="sm-title">🏢 Nova Organização</h2>
             {% if error %}
-                <div class="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">{{ error }}</div>
+                <div class="sm-alert sm-alert-error">{{ error }}</div>
             {% endif %}
             <form method="POST" action="/organizations/create">
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="name">Nome da Organização</label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-600" id="name" name="name" type="text" required>
+                <div class="sm-form-group">
+                    <label class="sm-label">Nome da Organização</label>
+                    <input class="sm-input" name="name" type="text" required>
                 </div>
-                <div class="flex items-center justify-between">
-                    <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full transition duration-300" type="submit">
-                        Criar
-                    </button>
+                <div style="display:flex; gap:0.75rem;">
+                    <button type="submit" class="sm-btn sm-btn-green" style="flex:1;">Criar</button>
+                    <a href="/organizations" class="sm-btn sm-btn-gray" style="flex:1; text-align:center;">Cancelar</a>
                 </div>
             </form>
-            <a href="/organizations" class="block text-center text-gray-600 text-sm mt-6 hover:underline">Voltar para lista</a>
         </div>
     </div>
 </body>

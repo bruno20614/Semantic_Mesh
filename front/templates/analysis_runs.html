@@ -4,99 +4,77 @@
     <meta charset="UTF-8">
     <title>Análises - Semantic Mesh</title>
     <link href="/static/output.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
-    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
-        <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
-        <div class="flex gap-4 items-center">
-            <a href="/organizations" class="text-blue-600 font-semibold hover:text-blue-800 transition">Organizações</a>
-            <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
+    <nav class="sm-nav">
+        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <div class="sm-nav-links">
+            <a href="/organizations" class="sm-nav-link">Organizações</a>
+            <a href="/logout" class="sm-nav-link danger">Sair</a>
         </div>
     </nav>
 
-    <div class="container mx-auto mt-16 p-8">
-        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 animate-pulse drop-shadow-lg">
-                    Execuções de Análise
-                </h2>
-                <a href="/analysis/new"
-                    style="background: #7c3aed; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; text-decoration: none; box-shadow: 0 2px 8px rgba(124,58,237,0.2);">
-                    + Nova Análise
-                </a>
+    <div class="container mx-auto px-6">
+        <div class="sm-card sm-card-full sm-fade">
+            <div class="sm-section-header">
+                <h2 class="sm-title" style="margin:0;">🔬 Execuções de Análise</h2>
+                <a href="/analysis/new" class="sm-btn sm-btn-primary">+ Nova Análise</a>
             </div>
 
             {% if runs|length == 0 %}
-                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
-                    <p class="font-semibold">Nenhuma análise encontrada.</p>
-                    <p>Quando uma análise semântica for executada, ela aparecerá aqui.</p>
+                <div class="sm-empty">
+                    <div class="sm-empty-icon">🔬</div>
+                    Nenhuma análise encontrada. Clique em "+ Nova Análise" para começar.
                 </div>
             {% else %}
-            <div style="background: rgba(255,255,255,0.85); border-radius: 2rem; box-shadow: 0 8px 32px 0 rgba(31,38,135,0.15); overflow: hidden; border: 1px solid rgba(255,255,255,0.18);">
-                <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
-                    <thead style="background: linear-gradient(90deg, #a1c4fd 0%, #c2e9fb 100%);">
+            <div class="sm-table-wrap">
+                <table class="sm-table">
+                    <thead>
                         <tr>
-                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 800; color: #374151; letter-spacing: 1px;">Organização</th>
-                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 800; color: #374151; letter-spacing: 1px;">Criado por</th>
-                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 800; color: #374151; letter-spacing: 1px;">Data</th>
-                            <th style="padding: 1rem 1.5rem; text-align: center; font-weight: 800; color: #374151; letter-spacing: 1px;">Docs</th>
-                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 800; color: #374151; letter-spacing: 1px;">Parâmetros</th>
-                            <th style="padding: 1rem 1.5rem; text-align: center; font-weight: 800; color: #374151; letter-spacing: 1px;">Resultados</th>
+                            <th>Organização</th>
+                            <th>Criado por</th>
+                            <th>Data</th>
+                            <th style="text-align:center;">Docs</th>
+                            <th>Parâmetros</th>
+                            <th style="text-align:center;">Resultados</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for run in runs %}
-                        <tr style="border-bottom: 1px solid #e5e7eb; background: #fff; transition: background 0.2s;">
-                            <!-- Organização -->
-                            <td style="padding: 1rem 1.5rem; font-weight: bold; color: #1e293b;">
-                                {{ run.org_name }}
+                        <tr>
+                            <td style="font-weight:700;">{{ run.org_name }}</td>
+                            <td class="muted">{{ run.created_by }}</td>
+                            <td class="muted" style="white-space:nowrap;">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td style="text-align:center;">
+                                <span class="sm-badge sm-badge-purple">📄 {{ run.doc_count }}</span>
                             </td>
-
-                            <!-- Criado por -->
-                            <td style="padding: 1rem 1.5rem; color: #4b5563;">
-                                {{ run.created_by }}
-                            </td>
-
-                            <!-- Data -->
-                            <td style="padding: 1rem 1.5rem; color: #2563eb; font-weight: 600; white-space: nowrap;">
-                                {{ run.created_at.strftime('%d/%m/%Y %H:%M') }}
-                            </td>
-
-                            <!-- Nº de documentos -->
-                            <td style="padding: 1rem 1.5rem; text-align: center;">
-                                <span style="background: #ede9fe; color: #6d28d9; font-weight: 700; padding: 0.2rem 0.7rem; border-radius: 999px;">
-                                    📄 {{ run.doc_count }}
-                                </span>
-                            </td>
-
-                            <!-- Parâmetros -->
-                            <td style="padding: 1rem 1.5rem; max-width: 280px;">
+                            <td>
                                 {% if run.parameters %}
-                                <div style="background: #f1f5f9; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.8rem; color: #334155; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">
+                                <div style="font-family:monospace; font-size:0.78rem; color:#334155; background:#f8fafc; border-radius:0.4rem; padding:0.4rem 0.6rem; max-width:220px; overflow:auto;">
                                     {% for key, value in run.parameters.items() %}
-                                    <div><span style="color: #7c3aed; font-weight: bold;">{{ key }}</span>: {{ value }}</div>
+                                    <div><span style="color:#7c3aed; font-weight:700;">{{ key }}</span>: {{ value }}</div>
                                     {% endfor %}
                                 </div>
                                 {% else %}
-                                <span style="color: #9ca3af; font-style: italic;">Sem parâmetros</span>
+                                <span style="color:#9ca3af; font-style:italic;">—</span>
                                 {% endif %}
                             </td>
-
-                            <!-- Resultados (contagens) -->
-                            <td style="padding: 1rem 1.5rem;">
-                                <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center;">
-                                    <span style="background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px;" title="Similaridades entre documentos">
-                                        🔗 {{ run.similarities }} similar.
-                                    </span>
-                                    <span style="background: #fef9c3; color: #92400e; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px;" title="Clusters de documentos">
-                                        🗂️ {{ run.clusters }} clusters
-                                    </span>
-                                    <span style="background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px;" title="Resumos gerados">
-                                        📝 {{ run.summaries }} resumos
-                                    </span>
-                                    <span style="background: #fce7f3; color: #9d174d; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px;" title="Comparações entre documentos">
-                                        ⚖️ {{ run.comparisons }} compar.
-                                    </span>
+                            <td>
+                                <div style="display:flex; flex-wrap:wrap; gap:0.3rem; justify-content:center;">
+                                    <span class="sm-badge sm-badge-blue">🔗 {{ run.similarities }}</span>
+                                    <span class="sm-badge sm-badge-yellow">🗂️ {{ run.clusters }}</span>
+                                    <span class="sm-badge sm-badge-green">📝 {{ run.summaries }}</span>
+                                    <span class="sm-badge sm-badge-pink">⚖️ {{ run.comparisons }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="display:flex; gap:0.3rem; justify-content:center; flex-wrap:wrap;">
+                                    <a href="/analysis/{{ run.id }}" class="sm-btn sm-btn-primary sm-btn-sm">Ver grafo</a>
+                                    <form method="POST" action="/analysis/{{ run.id }}/delete" onsubmit="return confirm('Excluir esta análise?');" style="display:inline;">
+                                        <button type="submit" class="sm-btn sm-btn-red sm-btn-sm">🗑️</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

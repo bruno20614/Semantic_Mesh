@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Análise — {{ run.org_name }} - Semantic Mesh</title>
+    <link href="/static/output.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
+    <!-- vis-network CDN com fallback -->
+    <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script>
+    if (typeof vis === 'undefined') {
+        document.write('<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"><\/script>');
+    }
+    </script>
+    <style>
+        #graph-container {
+            width: 100%;
+            height: 520px;
+            border-radius: 1rem;
+            border: 1.5px solid #ede9fe;
+            background: #fafafa;
+            overflow: hidden;
+        }
+        .cluster-dot {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
+    <nav class="sm-nav">
+        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <div class="sm-nav-links">
+            <a href="/analysis" class="sm-nav-link">← Análises</a>
+            <a href="/organizations" class="sm-nav-link">Organizações</a>
+            <a href="/logout" class="sm-nav-link danger">Sair</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6">
+
+        <!-- Cabeçalho da análise -->
+        <div class="sm-card sm-card-lg sm-fade">
+            <div class="sm-section-header" style="flex-wrap:wrap; gap:0.5rem;">
+                <div>
+                    <h2 class="sm-title" style="margin:0;">🔬 Análise — {{ run.org_name }}</h2>
+                    <p style="color:#6b7280; font-size:0.875rem; margin-top:0.25rem;">
+                        Criada por <strong>{{ run.created_by }}</strong>
+                        em {{ run.created_at.strftime('%d/%m/%Y %H:%M') }}
+                    </p>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <span class="sm-badge sm-badge-purple">📄 {{ run.doc_count }} docs</span>
+                    <span class="sm-badge sm-badge-blue">🔗 {{ run.similarities }} similares</span>
+                    <span class="sm-badge sm-badge-yellow">🗂️ {{ run.clusters }} clusters</span>
+                    {% if run.docs_with_text is defined %}
+                    <span class="sm-badge sm-badge-green">📝 {{ run.docs_with_text }} com texto</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Parâmetros -->
+            {% if run.parameters %}
+            <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:0.75rem;">
+                {% for key, value in run.parameters.items() %}
+                <span style="background:#f1f5f9; border-radius:0.5rem; padding:0.2rem 0.7rem; font-family:monospace; font-size:0.8rem; color:#334155;">
+                    <span style="color:#7c3aed; font-weight:700;">{{ key }}</span>: {{ value }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Grafo -->
+        <div class="sm-card sm-card-lg sm-fade" style="padding:1.5rem;">
+            <div class="sm-section-header">
+                <h3 class="sm-subtitle" style="margin:0; border:none;">🕸️ Grafo de Similaridade</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <label style="font-size:0.82rem; color:#6b7280;">Mostrar arestas ≥</label>
+                    <input type="range" id="edge-threshold" min="0" max="1" step="0.05" value="0"
+                        style="width:120px; accent-color:#7c3aed;">
+                    <span id="edge-threshold-val" style="font-weight:700; color:#7c3aed; font-size:0.85rem;">0.00</span>
+                    <button onclick="resetView()" class="sm-btn sm-btn-gray sm-btn-sm">Centralizar</button>
+                    <a href="/analysis/{{ run.id }}/rerun" class="sm-btn sm-btn-blue sm-btn-sm" title="Refaz o cálculo de similaridade">🔄 Refazer</a>
+                </div>
+            </div>
+
+            {% if graph.nodes|length == 0 %}
+            <div class="sm-empty">
+                <div class="sm-empty-icon">📭</div>
+                Nenhum documento encontrado na organização.
+            </div>
+            {% elif run.docs_with_text is defined and run.docs_with_text < 2 %}
+            <div class="sm-alert sm-alert-warn" style="margin:1rem 0;">
+                ⚠️ <strong>Apenas {{ run.docs_with_text }} documento(s) têm texto extraído.</strong>
+                São necessários pelo menos 2 para calcular similaridades.
+                Faça upload de documentos PDF/DOCX e clique em <strong>🔄 Refazer</strong>.
+            </div>
+            <div id="graph-container"></div>
+            {% else %}
+            <div id="graph-container"></div>
+
+            <!-- Legenda de clusters -->
+            {% if graph.clusters|length > 0 %}
+            <div style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <span style="font-size:0.8rem; font-weight:700; color:#4c1d95; margin-right:0.25rem;">Clusters:</span>
+                {% set palette = ["#7c3aed","#2563eb","#16a34a","#dc2626","#d97706","#0891b2","#9333ea","#15803d","#b91c1c","#1d4ed8"] %}
+                {% for i, cluster in graph.clusters|enumerate %}
+                <span style="display:flex; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:0.2rem 0.75rem; font-size:0.78rem;">
+                    <span class="cluster-dot" style="background:{{ palette[i % palette|length] }};"></span>
+                    {{ cluster.name }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Tabela de similaridades -->
+        {% if graph.edges|length > 0 %}
+        <div class="sm-card sm-card-lg sm-fade">
+            <h3 class="sm-subtitle">🔗 Similaridades entre Documentos</h3>
+            <div class="sm-table-wrap">
+                <table class="sm-table" id="sim-table">
+                    <thead>
+                        <tr>
+                            <th>Documento A</th>
+                            <th>Documento B</th>
+                            <th style="text-align:right;">Similaridade</th>
+                            <th style="text-align:center;">Barra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for edge in graph.edges|sort(attribute='value', reverse=True) %}
+                        <tr>
+                            <td style="font-weight:600;">{{ edge.doc_name_1 }}</td>
+                            <td style="font-weight:600;">{{ edge.doc_name_2 }}</td>
+                            <td style="text-align:right; font-family:monospace; font-weight:700; color:#7c3aed;">
+                                {{ "%.4f"|format(edge.value) }}
+                            </td>
+                            <td style="text-align:center; padding:0.5rem 1.25rem;">
+                                <div style="background:#ede9fe; border-radius:999px; height:8px; width:100%; max-width:120px; display:inline-block; overflow:hidden;">
+                                    <div style="background:#7c3aed; height:100%; width:{{ (edge.value * 100)|int }}%; border-radius:999px;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Dados do grafo embutidos no HTML -->
+    <script>
+    const ALL_NODES = {{ graph.nodes | tojson | safe }};
+    const ALL_EDGES = {{ graph.edges | tojson | safe }};
+
+    console.log('[SemanticMesh] Nós:', ALL_NODES.length, '| Arestas:', ALL_EDGES.length);
+    if (ALL_NODES.length === 0) {
+        console.warn('[SemanticMesh] Nenhum nó disponível. Verifique se os documentos têm texto extraído.');
+    }
+    if (typeof vis === 'undefined') {
+        console.error('[SemanticMesh] vis-network não carregou! Verifique conexão com CDN.');
+        const container = document.getElementById('graph-container');
+        if (container) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#dc2626;font-weight:600;">⚠️ Biblioteca de grafo não carregou (sem internet?). Recarregue a página.</div>';
+        }
+    }
+
+    let network = null;
+    let nodesDS = null;
+    let edgesDS = null;
+
+    function buildGraph(minSim) {
+        const container = document.getElementById('graph-container');
+        if (!container) return;
+
+        const filteredEdges = ALL_EDGES.filter(e => e.value >= minSim);
+
+        if (network) {
+            nodesDS.clear();
+            edgesDS.clear();
+            nodesDS.add(ALL_NODES);
+            edgesDS.add(filteredEdges);
+            return;
+        }
+
+        nodesDS = new vis.DataSet(ALL_NODES);
+        edgesDS = new vis.DataSet(filteredEdges);
+
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                borderWidth: 2,
+                shadow: { enabled: true, size: 6 },
+            },
+            edges: {
+                smooth: { type: 'continuous' },
+                shadow: false,
+            },
+            physics: {
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: {
+                    gravitationalConstant: -60,
+                    centralGravity: 0.01,
+                    springLength: 120,
+                    springConstant: 0.08,
+                },
+                stabilization: { iterations: 150 },
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 150,
+            },
+        };
+
+        network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, options);
+    }
+
+    function resetView() {
+        if (network) network.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+    }
+
+    // Slider de threshold
+    const slider = document.getElementById('edge-threshold');
+    const sliderVal = document.getElementById('edge-threshold-val');
+    if (slider) {
+        slider.addEventListener('input', function() {
+            const v = parseFloat(this.value);
+            sliderVal.textContent = v.toFixed(2);
+            buildGraph(v);
+        });
+    }
+
+    // Inicializa
+    document.addEventListener('DOMContentLoaded', () => buildGraph(0.0));
+    </script>
+</body>
+</html>

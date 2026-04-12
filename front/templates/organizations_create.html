@@ -4,35 +4,31 @@
     <meta charset="UTF-8">
     <title>Criar Organização - Semantic Mesh</title>
     <link href="/static/output.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-br from-purple-100 via-blue-200 to-green-100 min-h-screen">
-    <nav class="bg-white shadow-lg p-6 flex justify-between items-center rounded-b-2xl animate-fade-in">
-    <div class="flex items-center gap-6">
-    <h1 class="font-extrabold text-2xl text-purple-700 tracking-tight">Semantic Mesh App</h1>
-    <div style="margin-left: 2.5rem; display: flex; gap: 0.7rem;">
-        <a href="/dashboard" style="background: #2563eb; color: #fff; font-weight: 600; padding: 0.18rem 0.7rem; border-radius: 0.4rem; display: inline-block; box-shadow: 0 1px 4px rgba(37,99,235,0.10); text-decoration: none; font-size: 0.92rem;">Dashboard</a>
-        <a href="/organizations" style="background: #8b5cf6; color: #fff; font-weight: 600; padding: 0.18rem 0.7rem; border-radius: 0.4rem; display: inline-block; box-shadow: 0 1px 4px rgba(139,92,246,0.10); text-decoration: none; font-size: 0.92rem;">Organizações</a>
-    </div>
-</div>
-    <a href="/logout" class="text-red-600 font-semibold hover:text-red-800 transition">Sair</a>
-</nav>
-    <div class="container mx-auto mt-16 p-8">
-        <div class="bg-white rounded-3xl shadow-2xl p-10 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-extrabold text-blue-700">Criar Nova Organização</h2>
-                <a href="/organizations" style="background: #6366f1; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; display: inline-block; text-decoration: none; margin-left: 1rem;">Voltar</a>
-            </div>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
+    <nav class="sm-nav">
+        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <div class="sm-nav-links">
+            <a href="/organizations" class="sm-nav-link">Organizações</a>
+            <a href="/logout" class="sm-nav-link danger">Sair</a>
+        </div>
+    </nav>
+    <div class="container mx-auto px-6">
+        <div class="sm-card sm-card-sm sm-fade mx-auto">
+            <h2 class="sm-title">🏢 Nova Organização</h2>
             {% if message %}
-                <div class="mb-4 p-4 rounded {{ 'bg-green-100 text-green-800' if success else 'bg-red-100 text-red-800' }}">
-                    {{ message }}
-                </div>
+                <div class="sm-alert {{ 'sm-alert-success' if success else 'sm-alert-error' }}">{{ message }}</div>
             {% endif %}
-            <form method="post" class="space-y-6">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">Nome da Organização</label>
-                    <input type="text" name="name" id="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <form method="post">
+                <div class="sm-form-group">
+                    <label class="sm-label">Nome da Organização</label>
+                    <input type="text" name="name" class="sm-input" required>
                 </div>
-                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">Criar</button>
+                <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
+                    <button type="submit" class="sm-btn sm-btn-green" style="flex:1;">Criar</button>
+                    <a href="/organizations" class="sm-btn sm-btn-gray" style="flex:1; text-align:center;">Cancelar</a>
+                </div>
             </form>
         </div>
     </div>
