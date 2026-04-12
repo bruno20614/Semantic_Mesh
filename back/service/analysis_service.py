@@ -230,13 +230,12 @@ def get_graph_data(db, run_id) -> dict:
         })
         doc_name_map[str(doc.id)] = doc.filename
 
-    # Arestas: apenas acima do threshold mínimo de exibição (0.05)
-    display_min = 0.05
+    # Retorna apenas arestas com similaridade > 0 — zeros não têm semântica útil
     sims = (
         db.query(DocumentSimilarity)
         .filter(
             DocumentSimilarity.analysis_run_id == run_id,
-            DocumentSimilarity.similarity_score >= display_min,
+            DocumentSimilarity.similarity_score > 0,
         )
         .all()
     )

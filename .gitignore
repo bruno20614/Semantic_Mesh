@@ -15,3 +15,13 @@ venv/
 node_modules/
 __pycache__/
 backend/__pycache__/
+/back/uploads/
+/front/static/uploads/
+/uploads/
+/data/
+*.sqlite
+*.sqlite3
+*.db
+*.pdf
+*.docx
+.env
