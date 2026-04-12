@@ -18,13 +18,13 @@
     <div class="container mx-auto px-6">
         <div class="sm-card sm-card-full sm-fade">
             <div class="sm-section-header">
-                <h2 class="sm-title" style="margin:0;">🔬 Execuções de Análise</h2>
+                <h2 class="sm-title" style="margin:0;">Execuções de Análise</h2>
                 <a href="/analysis/new" class="sm-btn sm-btn-primary">+ Nova Análise</a>
             </div>
 
             {% if runs|length == 0 %}
                 <div class="sm-empty">
-                    <div class="sm-empty-icon">🔬</div>
+                    <div class="sm-empty-icon"></div>
                     Nenhuma análise encontrada. Clique em "+ Nova Análise" para começar.
                 </div>
             {% else %}
@@ -48,7 +48,7 @@
                             <td class="muted">{{ run.created_by }}</td>
                             <td class="muted" style="white-space:nowrap;">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
                             <td style="text-align:center;">
-                                <span class="sm-badge sm-badge-purple">📄 {{ run.doc_count }}</span>
+                                <span class="sm-badge sm-badge-purple">{{ run.doc_count }}</span>
                             </td>
                             <td>
                                 {% if run.parameters %}
@@ -63,17 +63,17 @@
                             </td>
                             <td>
                                 <div style="display:flex; flex-wrap:wrap; gap:0.3rem; justify-content:center;">
-                                    <span class="sm-badge sm-badge-blue">🔗 {{ run.similarities }}</span>
-                                    <span class="sm-badge sm-badge-yellow">🗂️ {{ run.clusters }}</span>
-                                    <span class="sm-badge sm-badge-green">📝 {{ run.summaries }}</span>
-                                    <span class="sm-badge sm-badge-pink">⚖️ {{ run.comparisons }}</span>
+                                    <span class="sm-badge sm-badge-blue">{{ run.similarities }}</span>
+                                    <span class="sm-badge sm-badge-yellow">{{ run.clusters }}</span>
+                                    <span class="sm-badge sm-badge-green">{{ run.summaries }}</span>
+                                    <span class="sm-badge sm-badge-pink">{{ run.comparisons }}</span>
                                 </div>
                             </td>
                             <td>
                                 <div style="display:flex; gap:0.3rem; justify-content:center; flex-wrap:wrap;">
                                     <a href="/analysis/{{ run.id }}" class="sm-btn sm-btn-primary sm-btn-sm">Ver grafo</a>
                                     <form method="POST" action="/analysis/{{ run.id }}/delete" onsubmit="return confirm('Excluir esta análise?');" style="display:inline;">
-                                        <button type="submit" class="sm-btn sm-btn-red sm-btn-sm">🗑️</button>
+                                        <button type="submit" class="sm-btn sm-btn-red sm-btn-sm">Excluir</button>
                                     </form>
                                 </div>
                             </td>

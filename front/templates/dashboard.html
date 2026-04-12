@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
     <nav class="sm-nav">
-        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <a href="/dashboard" class="sm-nav-brand">Semantic Mesh</a>
         <div class="sm-nav-links">
             <a href="/organizations" class="sm-nav-link">Organizações</a>
             <a href="/analysis" class="sm-nav-link">Análises</a>
@@ -18,7 +18,7 @@
 
     <div class="container mx-auto px-6">
         <div class="sm-card sm-card-lg sm-fade">
-            <h2 class="sm-title">👋 Bem-vindo, {{ username }}!</h2>
+            <h2 class="sm-title">Bem-vindo, {{ username }}!</h2>
             <p style="color:#6b7280; margin-bottom:1.5rem;">Seu ambiente de análise semântica de documentos.</p>
 
             <form method="POST" action="/set_active_org" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:2rem;">
@@ -34,14 +34,14 @@
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1rem;">
                 <a href="/organizations" style="text-decoration:none;">
                     <div style="background: linear-gradient(135deg,#ede9fe,#dbeafe); border-radius:1rem; padding:1.5rem; text-align:center; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
-                        <div style="font-size:2rem; margin-bottom:0.5rem;">🏢</div>
+                        <div style="font-size:2rem; margin-bottom:0.5rem;"></div>
                         <div style="font-weight:800; color:#4c1d95;">Organizações</div>
                         <div style="font-size:0.8rem; color:#6d28d9;">Gerencie suas orgs</div>
                     </div>
                 </a>
                 <a href="/analysis" style="text-decoration:none;">
                     <div style="background: linear-gradient(135deg,#dcfce7,#d1fae5); border-radius:1rem; padding:1.5rem; text-align:center; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
-                        <div style="font-size:2rem; margin-bottom:0.5rem;">🔬</div>
+                        <div style="font-size:2rem; margin-bottom:0.5rem;"></div>
                         <div style="font-weight:800; color:#166534;">Análises</div>
                         <div style="font-size:0.8rem; color:#15803d;">Execuções semânticas</div>
                     </div>

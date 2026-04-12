@@ -16,7 +16,7 @@
     </nav>
     <div class="container mx-auto px-6">
         <div class="sm-card sm-card-sm sm-fade mx-auto">
-            <h2 class="sm-title">📎 Adicionar Documento</h2>
+            <h2 class="sm-title">Adicionar Documento</h2>
             <p style="color:#6b7280; font-size:0.875rem; margin-bottom:1.25rem;">Organização: <strong>{{ org.name }}</strong></p>
 
             {% if message %}
@@ -25,7 +25,7 @@
 
             <form method="post" enctype="multipart/form-data">
                 <div id="dropzone" style="border: 2px dashed #7c3aed; border-radius: 1rem; background: #faf5ff; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;" onclick="document.getElementById('file').click()" ondragover="event.preventDefault(); this.style.background='#ede9fe';" ondragleave="this.style.background='#faf5ff';" ondrop="event.preventDefault(); this.style.background='#faf5ff'; document.getElementById('file').files = event.dataTransfer.files; updateLabel();">
-                    <div style="font-size:2rem; margin-bottom:0.5rem;">📁</div>
+                    <div style="font-size:2rem; margin-bottom:0.5rem;"></div>
                     <span id="drop-label" style="color:#7c3aed; font-weight:700;">Arraste ou clique para selecionar</span>
                     <p style="color:#9ca3af; font-size:0.8rem; margin-top:0.4rem;">PDF, DOCX, TXT, PNG, JPG, JPEG, TIFF, BMP, WEBP</p>
                     <input type="file" name="file" id="file" required accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp" style="display:none;" onchange="updateLabel()">
@@ -38,7 +38,7 @@
     function updateLabel() {
         const f = document.getElementById('file');
         const lbl = document.getElementById('drop-label');
-        if (f.files && f.files[0]) lbl.textContent = '✅ ' + f.files[0].name;
+        if (f.files && f.files[0]) lbl.textContent = f.files[0].name;
     }
     </script>
 </body>
