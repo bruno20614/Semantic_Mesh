@@ -40,7 +40,8 @@ def register_user_service(name, email, password):
         return "success"
     except Exception as e:
         db.rollback()
-        if "unique constraint" in str(e).lower():
+        print(f"[REGISTER ERROR] {e}")
+        if "unique" in str(e).lower():
             return "exists"
         return "error"
     finally:

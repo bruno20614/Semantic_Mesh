@@ -2,6 +2,54 @@ import os
 from datetime import datetime
 from service.orm import Document, DocumentFile, DocumentContent
 
+# Caminho padrão do Tesseract no Windows
+try:
+    import pytesseract
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+except ImportError:
+    pass
+
+IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp')
+
+
+def _extract_text_ocr(file_path):
+    """Extrai texto de imagem via pytesseract (OCR)."""
+    try:
+        import pytesseract
+        from PIL import Image
+        img = Image.open(file_path)
+        text = pytesseract.image_to_string(img, lang='por+eng')
+        return text.strip()
+    except ImportError:
+        return "Erro: pytesseract ou Pillow não instalados. Execute: pip install pytesseract Pillow"
+    except Exception as e:
+        return f"Erro ao aplicar OCR: {str(e)}"
+
+
+def _extract_text_from_pdf_with_ocr(file_path):
+    """Tenta extrair texto do PDF. Se vazio (PDF escaneado), aplica OCR página a página."""
+    try:
+        from PyPDF2 import PdfReader
+        reader = PdfReader(file_path)
+        text = "\n".join(page.extract_text() or '' for page in reader.pages).strip()
+        if text:
+            return text
+        # PDF escaneado — converte páginas em imagem e aplica OCR
+        try:
+            from pdf2image import convert_from_path
+            import pytesseract
+            pages = convert_from_path(file_path, dpi=300)
+            ocr_text = "\n".join(
+                pytesseract.image_to_string(page, lang='por+eng') for page in pages
+            )
+            return ocr_text.strip() or "Nenhum texto detectado no PDF."
+        except ImportError:
+            return "PDF escaneado detectado. Instale pdf2image e pytesseract para extrair texto de PDFs escaneados."
+        except Exception as e:
+            return f"Erro ao aplicar OCR no PDF: {str(e)}"
+    except Exception as e:
+        return f"Erro ao extrair PDF: {str(e)}"
+
 
 def save_document_with_content(db, org_id, file):
     file_location = os.path.join("..", "front", "uploads", str(org_id))
@@ -17,24 +65,22 @@ def save_document_with_content(db, org_id, file):
     db.add(doc_file)
     # --- Extração de texto ---
     raw_text = ""
+    fname = file.filename.lower()
     try:
-        if file.filename.lower().endswith('.txt'):
+        if fname.endswith('.txt'):
             with open(file_path, 'r', encoding='utf-8') as txtf:
                 raw_text = txtf.read()
-        elif file.filename.lower().endswith('.pdf'):
-            try:
-                from PyPDF2 import PdfReader
-                reader = PdfReader(file_path)
-                raw_text = "\n".join(page.extract_text() or '' for page in reader.pages)
-            except Exception as e:
-                raw_text = f"Erro ao extrair PDF: {str(e)}"
-        elif file.filename.lower().endswith('.docx'):
+        elif fname.endswith('.pdf'):
+            raw_text = _extract_text_from_pdf_with_ocr(file_path)
+        elif fname.endswith('.docx'):
             try:
                 import docx
                 docx_file = docx.Document(file_path)
                 raw_text = "\n".join([p.text for p in docx_file.paragraphs])
             except Exception as e:
                 raw_text = f"Erro ao extrair DOCX: {str(e)}"
+        elif fname.endswith(IMAGE_EXTENSIONS):
+            raw_text = _extract_text_ocr(file_path)
     except Exception as e:
         raw_text = f"Erro ao extrair texto: {str(e)}"
     if raw_text:
@@ -42,6 +88,7 @@ def save_document_with_content(db, org_id, file):
         db.add(doc_content)
     db.commit()
     return doc
+
 
 # Função para remover documento e arquivos
 

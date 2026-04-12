@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from uuid import UUID
-from service.orm import SessionLocal
+from service.orm import SessionFactory
 from service.document_service import save_document_with_content, remove_document
 
 router = APIRouter()
@@ -10,7 +10,7 @@ templates = Jinja2Templates(directory="../front/templates")
 
 @router.get("/documents", response_class=HTMLResponse)
 def list_documents(request: Request):
-    db = SessionLocal()
+    db = SessionFactory.create_session()
     from service.orm import Document, Organization
     docs = db.query(Document).all()
     orgs = {org.id: org.name for org in db.query(Organization).all()}
@@ -19,7 +19,7 @@ def list_documents(request: Request):
 
 @router.get("/documents/add", response_class=HTMLResponse)
 def add_document_form(request: Request):
-    db = SessionLocal()
+    db = SessionFactory.create_session()
     from service.orm import Organization
     orgs = db.query(Organization).all()
     db.close()
@@ -27,7 +27,7 @@ def add_document_form(request: Request):
 
 @router.post("/documents/add", response_class=HTMLResponse)
 def add_document(request: Request, org_id: UUID = Form(...), file: UploadFile = File(...)):
-    db = SessionLocal()
+    db = SessionFactory.create_session()
     try:
         save_document_with_content(db, org_id, file)
         db.close()
@@ -38,7 +38,7 @@ def add_document(request: Request, org_id: UUID = Form(...), file: UploadFile = 
 
 @router.post("/documents/{doc_id}/delete")
 def delete_document(request: Request, doc_id: UUID):
-    db = SessionLocal()
+    db = SessionFactory.create_session()
     from service.orm import Document
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:

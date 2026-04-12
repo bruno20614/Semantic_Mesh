@@ -24,7 +24,8 @@
             <form method="post" enctype="multipart/form-data" id="uploadForm" class="space-y-6">
     <div id="dropzone" style="border: 2px dashed #22c55e; border-radius: 1rem; background: #f0fdf4; padding: 2.5rem; text-align: center; cursor: pointer; transition: border 0.2s;">
         <span style="color: #22c55e; font-weight: bold; font-size: 1.1rem;">Arraste e solte o documento aqui ou clique para selecionar</span>
-        <input type="file" name="file" id="file" required accept=".pdf,.docx,.txt" style="display: none;">
+        <p style="color: #6b7280; font-size: 0.85rem; margin-top: 0.5rem;">Formatos aceitos: PDF, DOCX, TXT, PNG, JPG, JPEG, TIFF, BMP, WEBP</p>
+        <input type="file" name="file" id="file" required accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp" style="display: none;">
     </div>
     <button type="submit" style="background: #22c55e; color: #fff; font-weight: bold; padding: 0.5rem 1.2rem; border-radius: 0.5rem; display: inline-block; margin-top: 1rem;">Enviar</button>
 </form>

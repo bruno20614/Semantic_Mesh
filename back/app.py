@@ -21,8 +21,10 @@ def init_db():
 init_db()
 
 from controller.organization_controller import router as organization_router
+from controller.analysis_controller import router as analysis_router
 app.include_router(user_router)
 app.include_router(organization_router)
+app.include_router(analysis_router)
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)

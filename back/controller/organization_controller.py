@@ -67,11 +67,22 @@ def update_organization(org_id: UUID, org: OrganizationCreate):
     return result
 
 @router.post("/organizations/{org_id}/delete")
-def delete_organization_post(org_id: UUID):
+def delete_organization_post(request: Request, org_id: UUID):
+    if 'user_id' not in request.session:
+        return RedirectResponse("/", status_code=302)
+    from service.orm import SessionLocal, UserOrganization
+    db = SessionLocal()
+    membership = db.query(UserOrganization).filter(
+        UserOrganization.user_id == request.session['user_id'],
+        UserOrganization.organization_id == org_id,
+        UserOrganization.role == "owner"
+    ).first()
+    db.close()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Sem permissão para deletar esta organização.")
     success = delete_organization_service(org_id)
     if not success:
         raise HTTPException(status_code=404, detail="Organização não encontrada.")
-    from fastapi.responses import RedirectResponse
     from fastapi.responses import RedirectResponse
     return RedirectResponse("/organizations", status_code=303)
 

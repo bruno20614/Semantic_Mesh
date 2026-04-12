@@ -28,6 +28,7 @@ async def login_post(request: Request, username: str = Form(...), password: str 
         access_token = create_access_token({"user_id": str(user['id']), "email": user['email']})
         request.session['user_id'] = user['id']
         request.session['email'] = user['email']
+        request.session['username'] = user['name']
         request.session['jwt'] = access_token
         accept = request.headers.get('accept', '')
         if 'text/html' in accept:
@@ -67,6 +68,7 @@ async def dashboard(request: Request):
     db.close()
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
+        "username": request.session.get('username', request.session.get('email', '')),
         "email": request.session['email'],
         "organizations": organizations,
         "active_org_id": active_org_id
