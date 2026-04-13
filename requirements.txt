@@ -1,0 +1,37 @@
+# Requirements for Semantic Mesh (backend + document parsing)
+# Install with: pip install -r requirements.txt
+
+fastapi
+uvicorn[standard]
+jinja2
+sqlalchemy
+alembic
+psycopg2-binary
+python-dotenv
+
+# File upload / async file handling
+python-multipart
+aiofiles
+
+# Security / auth
+Werkzeug
+PyJWT
+
+# Document parsing / images / OCR
+python-docx
+PyPDF2
+pdfminer.six
+pdf2image
+pytesseract
+Pillow
+
+# Optional / typing
+typing-extensions
+
+# HTTP utils
+requests
+
+# Dev / testing (optional)
+pytest
+black
+isort
