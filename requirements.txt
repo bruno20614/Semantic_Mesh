@@ -31,6 +31,10 @@ typing-extensions
 # HTTP utils
 requests
 
+# IA / RAG
+numpy
+sentence-transformers
+
 # Dev / testing (optional)
 pytest
 black
