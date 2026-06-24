@@ -44,7 +44,10 @@
                     <tbody>
                         {% for run in runs %}
                         <tr>
-                            <td style="font-weight:700;">{{ run.org_name }}</td>
+                            <td>
+                                <div style="font-weight:800;">{{ run.org_name }}</div>
+                                <div class="muted" style="font-size:0.76rem;">Análise {{ run.id[:8] }}</div>
+                            </td>
                             <td class="muted">{{ run.created_by }}</td>
                             <td class="muted" style="white-space:nowrap;">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
                             <td style="text-align:center;">
@@ -71,6 +74,7 @@
                             </td>
                             <td>
                                 <div style="display:flex; gap:0.3rem; justify-content:center; flex-wrap:wrap;">
+                                    <a href="/analysis/{{ run.id }}/dashboard" class="sm-btn sm-btn-green sm-btn-sm">Dashboard</a>
                                     <a href="/analysis/{{ run.id }}" class="sm-btn sm-btn-primary sm-btn-sm">Ver grafo</a>
                                     <form method="POST" action="/analysis/{{ run.id }}/delete" onsubmit="return confirm('Excluir esta análise?');" style="display:inline;">
                                         <button type="submit" class="sm-btn sm-btn-red sm-btn-sm">Excluir</button>

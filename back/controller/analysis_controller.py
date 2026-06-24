@@ -46,6 +46,158 @@ def _analysis_cluster_options(db, run_uuid):
     return options
 
 
+def _analysis_dashboard_data(db, run, org):
+    params = run.parameters or {}
+    threshold = float(params.get("similarity_threshold", 0.75))
+    duplicate_threshold = max(0.85, threshold)
+
+    docs = (
+        db.query(Document)
+        .filter(Document.organization_id == run.organization_id)
+        .order_by(Document.filename.asc())
+        .all()
+    )
+    doc_names = {str(doc.id): doc.filename for doc in docs}
+    doc_count = len(docs)
+
+    docs_with_text_rows = (
+        db.query(Document)
+        .join(DocumentContent, DocumentContent.document_id == Document.id)
+        .filter(Document.organization_id == run.organization_id)
+        .filter(DocumentContent.raw_text != "")
+        .filter(DocumentContent.raw_text.isnot(None))
+        .all()
+    )
+    docs_with_text_ids = {str(doc.id) for doc in docs_with_text_rows}
+    docs_with_text = len(docs_with_text_ids)
+    docs_without_text = [
+        {"id": str(doc.id), "filename": doc.filename}
+        for doc in docs
+        if str(doc.id) not in docs_with_text_ids
+    ]
+
+    clusters = _analysis_cluster_options(db, run.id)
+    isolated_clusters = [cluster for cluster in clusters if cluster["count"] == 1]
+    thematic_clusters = [cluster for cluster in clusters if cluster["count"] > 1]
+    cluster_distribution = []
+    palette = ["#7c3aed", "#2563eb", "#16a34a", "#dc2626", "#d97706", "#0891b2", "#9333ea", "#15803d"]
+    accumulated = 0
+    for idx, cluster in enumerate(clusters[:7]):
+        percent = round((cluster["count"] / doc_count) * 100, 1) if doc_count else 0
+        accumulated += cluster["count"]
+        cluster_distribution.append({
+            "name": cluster["name"],
+            "count": cluster["count"],
+            "percent": percent,
+            "color": palette[idx % len(palette)],
+        })
+    if doc_count and accumulated < doc_count:
+        other_count = doc_count - accumulated
+        cluster_distribution.append({
+            "name": "Outros clusters",
+            "count": other_count,
+            "percent": round((other_count / doc_count) * 100, 1),
+            "color": "#64748b",
+        })
+
+    similarities = (
+        db.query(DocumentSimilarity)
+        .filter(DocumentSimilarity.analysis_run_id == run.id)
+        .order_by(DocumentSimilarity.similarity_score.desc())
+        .all()
+    )
+    graph_documents = [
+        {"id": str(doc.id), "name": doc.filename}
+        for doc in docs
+    ]
+    graph_similarities = [
+        {
+            "from": str(item.document_id_1),
+            "to": str(item.document_id_2),
+            "score": round(float(item.similarity_score), 4),
+        }
+        for item in similarities
+        if float(item.similarity_score) > 0
+    ]
+
+    duplicate_pairs = []
+    strong_pairs = []
+    connected_doc_ids = set()
+    for item in similarities:
+        score = float(item.similarity_score)
+        doc1 = str(item.document_id_1)
+        doc2 = str(item.document_id_2)
+        if score >= threshold:
+            connected_doc_ids.update([doc1, doc2])
+            strong_pairs.append({
+                "doc_name_1": doc_names.get(doc1, doc1),
+                "doc_name_2": doc_names.get(doc2, doc2),
+                "score": round(score, 4),
+            })
+        if score >= duplicate_threshold:
+            duplicate_pairs.append({
+                "doc_name_1": doc_names.get(doc1, doc1),
+                "doc_name_2": doc_names.get(doc2, doc2),
+                "score": round(score, 4),
+            })
+
+    out_of_scope_docs = [
+        {"id": str(doc.id), "filename": doc.filename}
+        for doc in docs
+        if str(doc.id) not in connected_doc_ids
+    ]
+
+    processed_percent = round((docs_with_text / doc_count) * 100) if doc_count else 0
+    without_text_percent = 100 - processed_percent if doc_count else 0
+    isolated_percent = round((len(out_of_scope_docs) / doc_count) * 100) if doc_count else 0
+    connected_percent = 100 - isolated_percent if doc_count else 0
+    actions = []
+    if docs_without_text:
+        actions.append(f"Reprocessar ou revisar {len(docs_without_text)} documento(s) sem texto extraído.")
+    if duplicate_pairs:
+        actions.append(f"Revisar {len(duplicate_pairs)} possível(is) duplicata(s) ou versões muito parecidas.")
+    if out_of_scope_docs:
+        actions.append(f"Avaliar {len(out_of_scope_docs)} documento(s) fora dos temas conectados da análise.")
+    if isolated_clusters:
+        actions.append(f"Verificar {len(isolated_clusters)} documento(s) isolado(s) sem cluster temático forte.")
+    if not actions:
+        actions.append("Nenhuma ação crítica identificada para esta análise.")
+
+    return {
+        "run": {
+            "id": str(run.id),
+            "org_name": org.name if org else "N/A",
+            "parameters": params,
+            "threshold": threshold,
+        },
+        "metrics": {
+            "doc_count": doc_count,
+            "docs_with_text": docs_with_text,
+            "docs_without_text": len(docs_without_text),
+            "processed_percent": processed_percent,
+            "without_text_percent": without_text_percent,
+            "clusters_count": len(clusters),
+            "thematic_clusters": len(thematic_clusters),
+            "isolated_count": len(isolated_clusters),
+            "duplicate_pairs": len(duplicate_pairs),
+            "out_of_scope_count": len(out_of_scope_docs),
+            "isolated_percent": isolated_percent,
+            "connected_percent": connected_percent,
+            "strong_pairs": len(strong_pairs),
+        },
+        "themes": thematic_clusters[:8],
+        "cluster_distribution": cluster_distribution,
+        "isolated_docs": isolated_clusters[:10],
+        "docs_without_text": docs_without_text[:10],
+        "duplicate_pairs": duplicate_pairs[:10],
+        "strong_pairs": strong_pairs[:10],
+        "out_of_scope_docs": out_of_scope_docs[:10],
+        "graph_documents": graph_documents,
+        "graph_similarities": graph_similarities,
+        "actions": actions,
+    }
+
+
 @router.get("/analysis", response_class=HTMLResponse)
 def list_analysis_runs(request: Request):
     if 'user_id' not in request.session:
@@ -352,6 +504,32 @@ def ask_analysis(
         "clusters": clusters,
         "selected_cluster_id": cluster_id,
         "expand_neighbors": expand_neighbors == "on",
+    })
+
+
+@router.get("/analysis/{run_id}/dashboard", response_class=HTMLResponse)
+def analysis_dashboard(request: Request, run_id: str):
+    if 'user_id' not in request.session:
+        return RedirectResponse("/", status_code=302)
+    db = SessionLocal()
+    try:
+        try:
+            run_uuid = uuid_mod.UUID(run_id)
+        except Exception:
+            return RedirectResponse("/analysis", status_code=302)
+
+        run = db.query(AnalysisRun).filter(AnalysisRun.id == run_uuid).first()
+        if not run:
+            return RedirectResponse("/analysis", status_code=302)
+
+        org = db.query(Organization).filter(Organization.id == run.organization_id).first()
+        dashboard = _analysis_dashboard_data(db, run, org)
+    finally:
+        db.close()
+
+    return templates.TemplateResponse("analysis_dashboard.html", {
+        "request": request,
+        "dashboard": dashboard,
     })
 
 

@@ -87,6 +87,7 @@
                         {{ "%.2f"|format(run.parameters.get('similarity_threshold', 0) if run.parameters else 0) }}
                     </span>
                     <button onclick="resetView()" class="sm-btn sm-btn-gray sm-btn-sm">Centralizar</button>
+                    <a href="/analysis/{{ run.id }}/dashboard" class="sm-btn sm-btn-primary sm-btn-sm">Dashboard</a>
                     <a href="/analysis/{{ run.id }}/ask" class="sm-btn sm-btn-green sm-btn-sm">Perguntar</a>
                     <a href="/analysis/{{ run.id }}/rerun" class="sm-btn sm-btn-blue sm-btn-sm" title="Refaz o cálculo de similaridade">Refazer</a>
                 </div>
@@ -434,7 +435,6 @@
         });
     }
 
-    // Inicializa no mesmo limiar usado para formar os clusters; depois o usuário ajusta só a visualização.
     document.addEventListener('DOMContentLoaded', () => buildGraph(INITIAL_EDGE_THRESHOLD));
     </script>
 </body>
