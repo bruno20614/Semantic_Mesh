@@ -80,10 +80,14 @@
                 <h3 class="sm-subtitle" style="margin:0; border:none;">Grafo de Similaridade</h3>
                 <div style="display:flex; gap:0.5rem; align-items:center;">
                     <label style="font-size:0.82rem; color:#6b7280;">Mostrar arestas ≥</label>
-                    <input type="range" id="edge-threshold" min="0" max="1" step="0.05" value="0"
+                    <input type="range" id="edge-threshold" min="0" max="1" step="0.05"
+                        value="{{ run.parameters.get('similarity_threshold', 0) if run.parameters else 0 }}"
                         style="width:120px; accent-color:#7c3aed;">
-                    <span id="edge-threshold-val" style="font-weight:700; color:#7c3aed; font-size:0.85rem;">0.00</span>
+                    <span id="edge-threshold-val" style="font-weight:700; color:#7c3aed; font-size:0.85rem;">
+                        {{ "%.2f"|format(run.parameters.get('similarity_threshold', 0) if run.parameters else 0) }}
+                    </span>
                     <button onclick="resetView()" class="sm-btn sm-btn-gray sm-btn-sm">Centralizar</button>
+                    <a href="/analysis/{{ run.id }}/ask" class="sm-btn sm-btn-green sm-btn-sm">Perguntar</a>
                     <a href="/analysis/{{ run.id }}/rerun" class="sm-btn sm-btn-blue sm-btn-sm" title="Refaz o cálculo de similaridade">Refazer</a>
                 </div>
             </div>
@@ -101,21 +105,19 @@
             </div>
             <div id="graph-container"></div>
             {% else %}
-            <div id="graph-container"></div>
-
-            <!-- Legenda de clusters -->
-            {% if graph.clusters|length > 0 %}
-            <div style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
-                <span style="font-size:0.8rem; font-weight:700; color:#4c1d95; margin-right:0.25rem;">Clusters:</span>
-                {% set palette = ["#7c3aed","#2563eb","#16a34a","#dc2626","#d97706","#0891b2","#9333ea","#15803d","#b91c1c","#1d4ed8"] %}
-                {% for i, cluster in graph.clusters|enumerate %}
-                <span style="display:flex; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:0.2rem 0.75rem; font-size:0.78rem;">
-                    <span class="cluster-dot" style="background:{{ palette[i % palette|length] }};"></span>
-                    {{ cluster.name }}
-                </span>
-                {% endfor %}
+            {% if highlight_doc_ids|length > 0 %}
+            <div class="sm-alert sm-alert-success" style="margin:1rem 0;">
+                Fontes da resposta destacadas no grafo. Nós em destaque forte foram usados pelo RAG; nós em amarelo são vizinhos por similaridade.
             </div>
             {% endif %}
+            <div id="graph-container"></div>
+
+            <div id="dynamic-cluster-summary" style="margin-top:0.9rem; color:#475569; font-size:0.82rem; font-weight:600;"></div>
+
+            <!-- Legenda de clusters dinâmica conforme o limiar visual -->
+            <div id="dynamic-cluster-legend" style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <span style="font-size:0.8rem; font-weight:700; color:#4c1d95; margin-right:0.25rem;">Clusters:</span>
+            </div>
             {% endif %}
         </div>
 
@@ -160,6 +162,12 @@
     <script>
     const ALL_NODES = {{ graph.nodes | tojson | safe }};
     const ALL_EDGES = {{ graph.edges | tojson | safe }};
+    const HIGHLIGHT_DOCS = new Set({{ highlight_doc_ids | tojson | safe }});
+    const INITIAL_EDGE_THRESHOLD = {{ (run.parameters.get('similarity_threshold', 0) if run.parameters else 0) | tojson }};
+    const CLUSTER_PALETTE = [
+        "#7c3aed", "#2563eb", "#16a34a", "#dc2626", "#d97706",
+        "#0891b2", "#9333ea", "#15803d", "#b91c1c", "#1d4ed8",
+    ];
 
     console.log('[SemanticMesh] Nós:', ALL_NODES.length, '| Arestas:', ALL_EDGES.length);
     if (ALL_NODES.length === 0) {
@@ -177,21 +185,208 @@
     let nodesDS = null;
     let edgesDS = null;
 
+    function dynamicClusters(edges) {
+        const scoreByPair = new Map();
+        edges.forEach(edge => {
+            const a = String(edge.from);
+            const b = String(edge.to);
+            scoreByPair.set([a, b].sort().join('::'), Number(edge.value || 0));
+        });
+
+        const groups = ALL_NODES.map(node => [String(node.id)]);
+
+        function pairScore(a, b) {
+            return scoreByPair.get([String(a), String(b)].sort().join('::')) || 0;
+        }
+
+        function canMerge(groupA, groupB) {
+            return groupA.every(a => groupB.every(b => pairScore(a, b) > 0));
+        }
+
+        let changed = true;
+        while (changed) {
+            changed = false;
+            let bestPair = null;
+            let bestScore = -1;
+
+            for (let i = 0; i < groups.length; i++) {
+                for (let j = i + 1; j < groups.length; j++) {
+                    if (!canMerge(groups[i], groups[j])) continue;
+                    let total = 0;
+                    let count = 0;
+                    groups[i].forEach(a => groups[j].forEach(b => {
+                        total += pairScore(a, b);
+                        count += 1;
+                    }));
+                    const avg = count ? total / count : 0;
+                    if (avg > bestScore) {
+                        bestScore = avg;
+                        bestPair = [i, j];
+                    }
+                }
+            }
+
+            if (bestPair) {
+                const [i, j] = bestPair;
+                groups[i] = groups[i].concat(groups[j]);
+                groups.splice(j, 1);
+                changed = true;
+            }
+        }
+
+        groups.sort((a, b) => b.length - a.length);
+        const clusterByNode = new Map();
+        groups.forEach((group, idx) => {
+            group.forEach(nodeId => clusterByNode.set(nodeId, idx));
+        });
+        return { groups, clusterByNode };
+    }
+
+    function renderDynamicClusterLegend(groups, minSim) {
+        const legend = document.getElementById('dynamic-cluster-legend');
+        const summary = document.getElementById('dynamic-cluster-summary');
+        if (!legend || !summary) return;
+
+        const multiClusters = groups.filter(group => group.length > 1);
+        const isolatedCount = groups.filter(group => group.length === 1).length;
+        summary.textContent = `${multiClusters.length} aglomerado(s) e ${isolatedCount} documento(s) isolado(s) com arestas >= ${minSim.toFixed(2)}.`;
+
+        legend.innerHTML = '<span style="font-size:0.8rem; font-weight:700; color:#4c1d95; margin-right:0.25rem;">Clusters:</span>';
+        groups.slice(0, 24).forEach((group, idx) => {
+            const label = dynamicClusterLabel(group, idx);
+            const docsTitle = dynamicClusterDocs(group).join('\n');
+            const item = document.createElement('span');
+            item.style.cssText = 'display:flex; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:0.2rem 0.75rem; font-size:0.78rem;';
+            item.title = docsTitle;
+            item.innerHTML = `<span class="cluster-dot" style="background:${CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length]};"></span>${label} (${group.length})`;
+            legend.appendChild(item);
+        });
+    }
+
+    function dynamicClusterDocs(group) {
+        return group
+            .map(nodeId => ALL_NODES.find(node => String(node.id) === String(nodeId)))
+            .filter(Boolean)
+            .map(node => node.title || node.label || 'Documento');
+    }
+
+    function dynamicClusterLabel(group, idx) {
+        const nodes = group
+            .map(nodeId => ALL_NODES.find(node => String(node.id) === String(nodeId)))
+            .filter(Boolean);
+        if (nodes.length === 1) {
+            const title = nodes[0].title || nodes[0].label || 'Documento';
+            return title.length > 34 ? title.slice(0, 31) + '...' : title;
+        }
+
+        const terms = new Map();
+        const stop = new Set([
+            'pdf', 'docx', 'doc', 'relatorio', 'relatório', 'entregavel', 'entregáveis',
+            'projeto', 'documento', 'final', 'versao', 'versão', 'the', 'and', 'para',
+            'com', 'sobre', 'dos', 'das',
+        ]);
+        nodes.forEach(node => {
+            const text = `${node.title || ''} ${node.label || ''}`
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ');
+            text.split(/\s+/).forEach(term => {
+                if (term.length < 4 || stop.has(term)) return;
+                terms.set(term, (terms.get(term) || 0) + 1);
+            });
+        });
+        const topTerms = Array.from(terms.entries())
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 3)
+            .map(([term]) => term.charAt(0).toUpperCase() + term.slice(1));
+        if (topTerms.length) return `Tema: ${topTerms.join(', ')}`;
+
+        const firstDoc = nodes[0].title || nodes[0].label || `Aglomerado ${idx + 1}`;
+        return firstDoc.length > 30 ? firstDoc.slice(0, 27) + '...' : firstDoc;
+    }
+
+    function relatedDocsForHighlights() {
+        const related = new Set();
+        if (HIGHLIGHT_DOCS.size === 0) return related;
+        ALL_EDGES.forEach(edge => {
+            const from = String(edge.from);
+            const to = String(edge.to);
+            if (HIGHLIGHT_DOCS.has(from) && !HIGHLIGHT_DOCS.has(to)) related.add(to);
+            if (HIGHLIGHT_DOCS.has(to) && !HIGHLIGHT_DOCS.has(from)) related.add(from);
+        });
+        return related;
+    }
+
+    function styledNodes(clusterByNode) {
+        const related = relatedDocsForHighlights();
+        return ALL_NODES.map(node => {
+            const id = String(node.id);
+            const clusterIdx = clusterByNode.get(id) || 0;
+            const baseNode = {
+                ...node,
+                cluster: clusterIdx,
+                color: { background: CLUSTER_PALETTE[clusterIdx % CLUSTER_PALETTE.length], border: "#1e1b4b" },
+            };
+            if (HIGHLIGHT_DOCS.has(id)) {
+                return {
+                    ...baseNode,
+                    size: 30,
+                    color: { background: "#f97316", border: "#7c2d12" },
+                    borderWidth: 5,
+                    shadow: { enabled: true, color: "rgba(249,115,22,0.45)", size: 18 },
+                    title: `${node.title || node.label}\nFonte usada na resposta RAG`,
+                };
+            }
+            if (related.has(id)) {
+                return {
+                    ...baseNode,
+                    size: 24,
+                    color: { background: "#fde68a", border: "#d97706" },
+                    borderWidth: 3,
+                    font: { color: "#78350f", size: 13, bold: true },
+                    title: `${node.title || node.label}\nVizinho similar a uma fonte RAG`,
+                };
+            }
+            return baseNode;
+        });
+    }
+
+    function styledEdges(edges) {
+        if (HIGHLIGHT_DOCS.size === 0) return edges;
+        return edges.map(edge => {
+            const from = String(edge.from);
+            const to = String(edge.to);
+            const touchesHighlight = HIGHLIGHT_DOCS.has(from) || HIGHLIGHT_DOCS.has(to);
+            if (!touchesHighlight) return edge;
+            return {
+                ...edge,
+                width: Math.max(edge.width || 1, 4),
+                color: { color: "rgba(249,115,22,0.85)" },
+                font: { size: 11, color: "#7c2d12", strokeWidth: 3, strokeColor: "#fff" },
+            };
+        });
+    }
+
     function buildGraph(minSim) {
         const container = document.getElementById('graph-container');
         if (!container) return;
 
-        const filteredEdges = ALL_EDGES.filter(e => e.value >= minSim);
+        const rawFilteredEdges = ALL_EDGES.filter(e => e.value >= minSim);
+        const { groups, clusterByNode } = dynamicClusters(rawFilteredEdges);
+        renderDynamicClusterLegend(groups, minSim);
+        const filteredEdges = styledEdges(rawFilteredEdges);
+        const currentNodes = styledNodes(clusterByNode);
 
         if (network) {
             nodesDS.clear();
             edgesDS.clear();
-            nodesDS.add(ALL_NODES);
+            nodesDS.add(currentNodes);
             edgesDS.add(filteredEdges);
             return;
         }
 
-        nodesDS = new vis.DataSet(ALL_NODES);
+        nodesDS = new vis.DataSet(currentNodes);
         edgesDS = new vis.DataSet(filteredEdges);
 
         const options = {
@@ -239,8 +434,8 @@
         });
     }
 
-    // Inicializa
-    document.addEventListener('DOMContentLoaded', () => buildGraph(0.0));
+    // Inicializa no mesmo limiar usado para formar os clusters; depois o usuário ajusta só a visualização.
+    document.addEventListener('DOMContentLoaded', () => buildGraph(INITIAL_EDGE_THRESHOLD));
     </script>
 </body>
 </html>

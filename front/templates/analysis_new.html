@@ -36,13 +36,11 @@
                 </div>
 
                 <div class="sm-form-group">
-                    <label class="sm-label">Modelo</label>
-                    <select name="model" class="sm-input sm-select">
-                        <option value="sem_modelo">Nenhum (reservado para IA futura)</option>
-                        <option value="bert-base">BERT Base</option>
-                        <option value="sentence-transformers">Sentence Transformers</option>
-                        <option value="openai-embeddings">OpenAI Embeddings</option>
-                    </select>
+                    <label class="sm-label">Método</label>
+                    <div class="sm-input" style="background:#f8fafc; color:#374151;">
+                        TF-IDF + similaridade cosseno
+                    </div>
+                    <div class="sm-hint">Método fixo usado para calcular similaridade e formar clusters.</div>
                 </div>
 
                 <div class="sm-form-group">
@@ -54,11 +52,6 @@
                         style="width:100%; accent-color:#7c3aed;"
                         oninput="document.getElementById('threshold-val').textContent = this.value">
                     <div class="sm-hint">Documentos com similaridade acima deste valor serão agrupados.</div>
-                </div>
-
-                <div class="sm-form-group">
-                    <label class="sm-label">Máximo de Clusters</label>
-                    <input type="number" name="max_clusters" value="5" min="1" max="50" class="sm-input">
                 </div>
 
                 <div style="display:flex; gap:0.75rem; margin-top:1rem;">

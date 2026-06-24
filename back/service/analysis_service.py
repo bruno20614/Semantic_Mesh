@@ -23,6 +23,65 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r'\b[a-záéíóúàâêôãõçü]{3,}\b', text.lower())
 
 
+_STOPWORDS = {
+    "aos", "a", "as", "ao", "o", "os", "um", "uma", "uns", "umas",
+    "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas",
+    "por", "para", "com", "sem", "sobre", "entre", "ate", "até",
+    "que", "qual", "quais", "quem", "quando", "onde", "como", "porque",
+    "e", "ou", "mas", "se", "sao", "são", "ser", "foi", "sua", "seu",
+    "suas", "seus", "este", "esta", "esse", "essa", "isso", "isto",
+    "documento", "documentos", "arquivo", "arquivos", "pagina", "página",
+    "figura", "tabela", "introducao", "introdução", "conclusao", "conclusão",
+    "referencias", "referências", "resumo", "abstract", "the", "and", "for",
+    "with", "this", "that", "from", "are", "was", "were", "can", "using",
+}
+
+
+def _content_tokens(text: str) -> list[str]:
+    return [token for token in _tokenize(text) if token not in _STOPWORDS]
+
+
+def _chunk_text(text: str, size: int = 1100, overlap: int = 180) -> list[str]:
+    clean = re.sub(r"\s+", " ", (text or "").strip())
+    if not clean:
+        return []
+
+    chunks = []
+    start = 0
+    while start < len(clean):
+        end = min(start + size, len(clean))
+        chunk = clean[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end == len(clean):
+            break
+        start = max(end - overlap, start + 1)
+    return chunks
+
+
+def _cluster_label(group: list, texts_by_doc_id: dict, vectors: dict) -> str:
+    if len(group) == 1:
+        return "Documento isolado"
+
+    weights: Counter = Counter()
+    frequency: Counter = Counter()
+    for doc_id in group:
+        for term, weight in vectors.get(doc_id, {}).items():
+            if term in _STOPWORDS:
+                continue
+            weights[term] += weight
+        frequency.update(set(_content_tokens(texts_by_doc_id.get(doc_id, ""))))
+
+    terms = [
+        term for term, _ in weights.most_common(12)
+        if frequency[term] >= 1 and len(term) >= 4
+    ][:3]
+    if not terms:
+        return "Documentos relacionados"
+
+    return "Tema: " + ", ".join(term.capitalize() for term in terms)
+
+
 # ── TF-IDF ────────────────────────────────────────────────────────────────────
 
 def _build_tfidf(documents: list[tuple]) -> dict:
@@ -52,6 +111,72 @@ def _build_tfidf(documents: list[tuple]) -> dict:
         vectors[doc_id] = vec
 
     return vectors
+
+
+def _build_chunk_tfidf(documents: list[tuple]) -> tuple[dict, dict]:
+    """
+    Retorna:
+      chunks_by_doc: {doc_id: [{"id": chunk_id, "text": chunk_text}, ...]}
+      vectors_by_chunk: {chunk_id: {term: tfidf_weight}}
+    """
+    chunk_documents = []
+    chunks_by_doc: dict = {}
+    for doc_id, text in documents:
+        chunks = _chunk_text(text)
+        if not chunks:
+            chunks = [text or ""]
+        chunks_by_doc[doc_id] = []
+        for idx, chunk in enumerate(chunks):
+            chunk_id = (doc_id, idx)
+            chunks_by_doc[doc_id].append({"id": chunk_id, "text": chunk})
+            chunk_documents.append((chunk_id, chunk))
+
+    vectors_by_chunk = _build_tfidf(chunk_documents)
+    return chunks_by_doc, vectors_by_chunk
+
+
+def _chunked_document_similarity(
+    chunks_a: list[dict],
+    chunks_b: list[dict],
+    vectors_by_chunk: dict,
+    chunk_threshold: float = 0.30,
+    top_n: int = 3,
+) -> float:
+    if not chunks_a or not chunks_b:
+        return 0.0
+
+    scores = []
+    matched_a = set()
+    matched_b = set()
+    for chunk_a in chunks_a:
+        for chunk_b in chunks_b:
+            score = _cosine(
+                vectors_by_chunk.get(chunk_a["id"], {}),
+                vectors_by_chunk.get(chunk_b["id"], {}),
+            )
+            if score <= 0:
+                continue
+            scores.append((score, chunk_a["id"], chunk_b["id"]))
+            if score >= chunk_threshold:
+                matched_a.add(chunk_a["id"])
+                matched_b.add(chunk_b["id"])
+
+    if not scores:
+        return 0.0
+
+    scores.sort(reverse=True, key=lambda item: item[0])
+    top_scores = [score for score, _, _ in scores[:top_n]]
+    strong_scores = [score for score, _, _ in scores if score >= chunk_threshold]
+
+    min_chunks = min(len(chunks_a), len(chunks_b))
+    if min_chunks > 1 and len(strong_scores) < 2:
+        return round(max(top_scores) * 0.35, 4)
+
+    base_score = sum(top_scores) / len(top_scores)
+    coverage_a = len(matched_a) / len(chunks_a)
+    coverage_b = len(matched_b) / len(chunks_b)
+    coverage = math.sqrt(min(coverage_a, coverage_b) or (1 / max(len(chunks_a), len(chunks_b))))
+    return round(base_score * coverage, 4)
 
 
 def _cosine(v1: dict, v2: dict) -> float:
@@ -88,6 +213,51 @@ class _UnionFind:
         return list(result.values())
 
 
+def _complete_link_groups(doc_ids: list, similarities: list[tuple], threshold: float) -> list[list]:
+    score_by_pair = {
+        frozenset((d1, d2)): score
+        for d1, d2, score in similarities
+    }
+    groups: list[list] = [[doc_id] for doc_id in doc_ids]
+
+    def pair_score(a, b) -> float:
+        return score_by_pair.get(frozenset((a, b)), 0.0)
+
+    def can_merge(group_a: list, group_b: list) -> bool:
+        return all(
+            pair_score(a, b) >= threshold
+            for a in group_a
+            for b in group_b
+        )
+
+    changed = True
+    while changed:
+        changed = False
+        best_pair = None
+        best_score = -1.0
+
+        for i in range(len(groups)):
+            for j in range(i + 1, len(groups)):
+                if not can_merge(groups[i], groups[j]):
+                    continue
+                avg_score = sum(
+                    pair_score(a, b)
+                    for a in groups[i]
+                    for b in groups[j]
+                ) / (len(groups[i]) * len(groups[j]))
+                if avg_score > best_score:
+                    best_score = avg_score
+                    best_pair = (i, j)
+
+        if best_pair:
+            i, j = best_pair
+            groups[i].extend(groups[j])
+            del groups[j]
+            changed = True
+
+    return groups
+
+
 # ── pipeline principal ────────────────────────────────────────────────────────
 
 def run_analysis(db, run_id) -> dict:
@@ -103,7 +273,6 @@ def run_analysis(db, run_id) -> dict:
 
     params = run.parameters or {}
     threshold = float(params.get("similarity_threshold", 0.75))
-    max_clusters = int(params.get("max_clusters", 10))
 
     # 1. Busca documentos da organização com texto extraído
     docs = (
@@ -117,12 +286,14 @@ def run_analysis(db, run_id) -> dict:
     for doc, content in docs:
         text = content.raw_text if content else ""
         doc_texts.append((doc.id, text))
+    texts_by_doc_id = {doc_id: text for doc_id, text in doc_texts}
 
     if len(doc_texts) < 2:
         return {"error": "São necessários pelo menos 2 documentos com texto extraído."}
 
     # 2. TF-IDF
     vectors = _build_tfidf(doc_texts)
+    chunks_by_doc, chunk_vectors = _build_chunk_tfidf(doc_texts)
     doc_ids = [d[0] for d in doc_texts]
 
     # 3. Similaridade pares + salvar
@@ -137,7 +308,11 @@ def run_analysis(db, run_id) -> dict:
     for i in range(len(doc_ids)):
         for j in range(i + 1, len(doc_ids)):
             d1, d2 = doc_ids[i], doc_ids[j]
-            score = _cosine(vectors.get(d1, {}), vectors.get(d2, {}))
+            score = _chunked_document_similarity(
+                chunks_by_doc.get(d1, []),
+                chunks_by_doc.get(d2, []),
+                chunk_vectors,
+            )
             similarities.append((d1, d2, score))
             db.add(DocumentSimilarity(
                 analysis_run_id=run_id,
@@ -146,25 +321,15 @@ def run_analysis(db, run_id) -> dict:
                 similarity_score=score,
             ))
 
-    # 4. Clustering via Union-Find
-    uf = _UnionFind(doc_ids)
-    for d1, d2, score in similarities:
-        if score >= threshold:
-            uf.union(d1, d2)
-
-    groups = uf.groups()
-    # Limita ao max_clusters — agrupa os menores juntos se necessário
+    # 4. Clustering por ligação completa: evita juntar documentos por pontes fracas/transitivas.
+    groups = _complete_link_groups(doc_ids, similarities, threshold)
     groups.sort(key=len, reverse=True)
-    if len(groups) > max_clusters:
-        overflow = groups[max_clusters:]
-        groups = groups[:max_clusters]
-        groups[-1].extend(doc for grp in overflow for doc in grp)
 
     # Salva clusters
     for idx, group in enumerate(groups, 1):
         cluster = Cluster(
             analysis_run_id=run_id,
-            name=f"Cluster {idx}",
+            name=_cluster_label(group, texts_by_doc_id, vectors),
         )
         db.add(cluster)
         db.flush()
@@ -187,9 +352,6 @@ def get_graph_data(db, run_id) -> dict:
     run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
     if not run:
         return {"nodes": [], "edges": []}
-
-    params = run.parameters or {}
-    min_edge = float(params.get("similarity_threshold", 0.1))
 
     # Monta mapa doc_id → cluster_index (cor)
     clusters = db.query(Cluster).filter(Cluster.analysis_run_id == run_id).all()
