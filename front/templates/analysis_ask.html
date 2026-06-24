@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Perguntar aos Documentos - Semantic Mesh</title>
+    <link href="/static/output.css" rel="stylesheet">
+    <link href="/static/app.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 min-h-screen">
+    <nav class="sm-nav">
+        <a href="/dashboard" class="sm-nav-brand">⬡ Semantic Mesh</a>
+        <div class="sm-nav-links">
+            <a href="/analysis/{{ run.id }}" class="sm-nav-link">← Grafo</a>
+            <a href="/analysis" class="sm-nav-link">Análises</a>
+            <a href="/logout" class="sm-nav-link danger">Sair</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6">
+        <div class="sm-card sm-card-lg sm-fade">
+            <div class="sm-section-header" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                    <h2 class="sm-title" style="margin:0;">Perguntar aos Documentos</h2>
+                    <p style="color:#6b7280; font-size:0.9rem; margin-top:0.25rem;">
+                        Análise de <strong>{{ run.org_name }}</strong>
+                    </p>
+                </div>
+                <span class="sm-badge sm-badge-green">{{ run.docs_with_text }} com texto</span>
+            </div>
+
+            {% if error %}
+                <div class="sm-alert sm-alert-error">{{ error }}</div>
+            {% endif %}
+
+            {% if run.docs_with_text < 1 %}
+                <div class="sm-alert sm-alert-warn">
+                    Nenhum documento com texto extraído foi encontrado nesta análise.
+                </div>
+            {% endif %}
+
+            <form method="POST" action="/analysis/{{ run.id }}/ask">
+                <div class="sm-form-group">
+                    <label class="sm-label">Pergunta</label>
+                    <textarea name="question" required class="sm-input" rows="4"
+                        placeholder="Ex.: Quais documentos falam sobre prazos de entrega?">{{ question }}</textarea>
+                    <div class="sm-hint">A resposta será gerada a partir dos trechos mais relevantes dos documentos.</div>
+                </div>
+
+                <div class="sm-form-group">
+                    <label class="sm-label">Escopo</label>
+                    <select name="cluster_id" class="sm-input sm-select">
+                        <option value="all">Todos os clusters</option>
+                        {% for cluster in clusters %}
+                        <option value="{{ cluster.id }}" title="{{ cluster.documents|join('&#10;') }}" {% if selected_cluster_id == cluster.id %}selected{% endif %}>
+                            {{ cluster.name }} ({{ cluster.count }} docs)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="sm-hint">Grupos com mais documentos aparecem primeiro. Limite a pergunta a um cluster quando quiser evitar mistura de temas.</div>
+                </div>
+
+                <label style="display:flex; align-items:center; gap:0.5rem; margin:0.75rem 0 1rem; color:#374151; font-size:0.9rem;">
+                    <input type="checkbox" name="expand_neighbors" {% if expand_neighbors %}checked{% endif %}
+                        style="width:1rem; height:1rem; accent-color:#7c3aed;">
+                    Expandir busca com vizinhos do grafo de similaridade
+                </label>
+
+                <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                    <button type="submit" class="sm-btn sm-btn-primary">Perguntar</button>
+                    <a href="/analysis/{{ run.id }}" class="sm-btn sm-btn-gray">Voltar ao grafo</a>
+                </div>
+            </form>
+        </div>
+
+        {% if result %}
+        <div class="sm-card sm-card-lg sm-fade">
+            <div class="sm-section-header" style="flex-wrap:wrap; gap:0.5rem;">
+                <h3 class="sm-subtitle" style="margin:0; border:none;">Resposta</h3>
+                <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <span class="sm-badge sm-badge-green">{{ result.answer_mode }}</span>
+                    {% if result.llm_model %}
+                    <span class="sm-badge sm-badge-yellow">{{ result.llm_model }}</span>
+                    {% endif %}
+                    <span class="sm-badge sm-badge-blue">{{ result.retrieval_mode }}</span>
+                    <span class="sm-badge sm-badge-purple">{{ result.chunks_indexed }} chunks</span>
+                </div>
+            </div>
+
+            <div style="white-space:pre-line; color:#1f2937; line-height:1.65; background:#f8fafc; border:1px solid #e5e7eb; border-radius:0.75rem; padding:1rem;">
+                {{ result.answer }}
+            </div>
+
+            {% if result.source_document_ids|length > 0 %}
+            <div style="margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+                <a class="sm-btn sm-btn-blue sm-btn-sm"
+                   href="/analysis/{{ run.id }}?highlight={{ result.source_document_ids|join(',') }}">
+                    Ver fontes no grafo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if result.related_documents|length > 0 %}
+        <div class="sm-card sm-card-lg sm-fade">
+            <h3 class="sm-subtitle">Vizinhos do Grafo</h3>
+            <div class="sm-table-wrap">
+                <table class="sm-table">
+                    <thead>
+                        <tr>
+                            <th>Fonte</th>
+                            <th>Documento relacionado</th>
+                            <th style="text-align:right;">Similaridade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in result.related_documents %}
+                        <tr>
+                            <td style="font-weight:700;">{{ item.source_document_name }}</td>
+                            <td>{{ item.document_name }}</td>
+                            <td style="text-align:right; font-family:monospace; color:#7c3aed; font-weight:700;">
+                                {{ "%.4f"|format(item.similarity_score) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if result.sources|length > 0 %}
+        <div class="sm-card sm-card-lg sm-fade">
+            <h3 class="sm-subtitle">Fontes Recuperadas</h3>
+            <div class="sm-table-wrap">
+                <table class="sm-table">
+                    <thead>
+                        <tr>
+                            <th>Documento</th>
+                            <th style="text-align:center;">Chunk</th>
+                            <th style="text-align:right;">Score</th>
+                            <th>Trecho</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for source in result.sources %}
+                        <tr>
+                            <td style="font-weight:700;">{{ source.document_name }}</td>
+                            <td style="text-align:center; font-family:monospace;">{{ source.chunk_index }}</td>
+                            <td style="text-align:right; font-family:monospace; color:#7c3aed; font-weight:700;">
+                                {{ "%.4f"|format(source.score) }}
+                            </td>
+                            <td style="max-width:520px;">{{ source.text[:360] }}{% if source.text|length > 360 %}...{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
