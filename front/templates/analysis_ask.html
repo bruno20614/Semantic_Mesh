@@ -38,7 +38,7 @@
                 </div>
             {% endif %}
 
-            <form method="POST" action="/analysis/{{ run.id }}/ask">
+            <form method="POST" action="/analysis/{{ run.id }}/ask" id="ask-documents-form">
                 <div class="sm-form-group">
                     <label class="sm-label">Pergunta</label>
                     <textarea name="question" required class="sm-input" rows="4"
@@ -59,6 +59,16 @@
                     <div class="sm-hint">Grupos com mais documentos aparecem primeiro. Limite a pergunta a um cluster quando quiser evitar mistura de temas.</div>
                 </div>
 
+                <div class="sm-form-group">
+                    <label class="sm-label">Modelo de IA</label>
+                    <select name="llm_provider" class="sm-input sm-select">
+                        <option value="env" {% if llm_provider == "env" %}selected{% endif %}>Padrão do ambiente</option>
+                        <option value="ollama" {% if llm_provider == "ollama" %}selected{% endif %}>Ollama local</option>
+                        <option value="openai" {% if llm_provider == "openai" %}selected{% endif %}>OpenAI externa</option>
+                    </select>
+                    <div class="sm-hint">A OpenAI usa a chave configurada no arquivo .env. O Ollama exige o serviço local rodando.</div>
+                </div>
+
                 <label style="display:flex; align-items:center; gap:0.5rem; margin:0.75rem 0 1rem; color:#374151; font-size:0.9rem;">
                     <input type="checkbox" name="expand_neighbors" {% if expand_neighbors %}checked{% endif %}
                         style="width:1rem; height:1rem; accent-color:#7c3aed;">
@@ -66,8 +76,15 @@
                 </label>
 
                 <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-                    <button type="submit" class="sm-btn sm-btn-primary">Perguntar</button>
+                    <button type="submit" class="sm-btn sm-btn-primary" id="ask-submit-btn">
+                        <span id="ask-submit-label">Perguntar</span>
+                        <span id="ask-submit-loading" style="display:none;">Processando...</span>
+                    </button>
                     <a href="/analysis/{{ run.id }}" class="sm-btn sm-btn-gray">Voltar ao grafo</a>
+                </div>
+
+                <div id="ask-loading-message" class="sm-alert sm-alert-warn" style="display:none; margin-top:1rem;">
+                    Consultando documentos e gerando resposta. Isso pode levar alguns segundos.
                 </div>
             </form>
         </div>
@@ -89,6 +106,12 @@
             <div style="white-space:pre-line; color:#1f2937; line-height:1.65; background:#f8fafc; border:1px solid #e5e7eb; border-radius:0.75rem; padding:1rem;">
                 {{ result.answer }}
             </div>
+
+            {% if result.llm_error %}
+            <div class="sm-alert sm-alert-warn" style="margin-top:1rem;">
+                A resposta foi gerada em modo extrativo porque a LLM não respondeu: {{ result.llm_error }}
+            </div>
+            {% endif %}
 
             {% if result.source_document_ids|length > 0 %}
             <div style="margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
@@ -159,5 +182,25 @@
         {% endif %}
         {% endif %}
     </div>
+    <script>
+        const askForm = document.getElementById('ask-documents-form');
+        const askButton = document.getElementById('ask-submit-btn');
+        const askLabel = document.getElementById('ask-submit-label');
+        const askLoading = document.getElementById('ask-submit-loading');
+        const askMessage = document.getElementById('ask-loading-message');
+
+        if (askForm) {
+            askForm.addEventListener('submit', () => {
+                if (askButton) {
+                    askButton.disabled = true;
+                    askButton.style.opacity = '0.75';
+                    askButton.style.cursor = 'wait';
+                }
+                if (askLabel) askLabel.style.display = 'none';
+                if (askLoading) askLoading.style.display = 'inline';
+                if (askMessage) askMessage.style.display = 'block';
+            });
+        }
+    </script>
 </body>
 </html>

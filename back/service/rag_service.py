@@ -166,6 +166,7 @@ def _answer_similarity_question(
     allowed_doc_ids: set | None,
     top_k: int,
     min_similarity: float,
+    llm_provider: str | None,
 ) -> dict | None:
     if not _is_similarity_question(question):
         return None
@@ -235,14 +236,16 @@ def _answer_similarity_question(
             break
 
     if related_documents:
-        answer, answer_mode, llm_model, sources = _summarize_similar_documents(
+        answer, answer_mode, llm_model, sources, llm_error = _summarize_similar_documents(
             db,
             question,
             source_doc,
             related_documents,
+            llm_provider,
         )
         chunks_indexed = len(sources)
     else:
+        llm_error = None
         if weak_documents:
             weak_lines = [
                 f"{idx}. {item['document_name']} (similaridade {item['similarity_score']:.4f})"
@@ -278,6 +281,7 @@ def _answer_similarity_question(
         "cluster_id": cluster_id,
         "expand_neighbors": False,
         "chunks_indexed": chunks_indexed,
+        "llm_error": llm_error,
     }
 
 
@@ -333,7 +337,8 @@ def _summarize_similar_documents(
     question: str,
     source_doc: Document,
     related_documents: list[dict],
-) -> tuple[str, str, str | None, list[dict]]:
+    llm_provider: str | None = None,
+) -> tuple[str, str, str | None, list[dict], str | None]:
     related_ids = [item["document_id"] for item in related_documents]
     reference_content = (
         db.query(Document, DocumentContent)
@@ -389,26 +394,31 @@ def _summarize_similar_documents(
 
     if sources:
         try:
-            from service.llm_service import generate_with_ollama
+            from service.llm_service import generate_llm_response
 
-            llm_result = generate_with_ollama(
+            llm_result = generate_llm_response(
                 _build_similarity_prompt(
                     question,
                     source_doc,
                     related_documents,
                     reference_sources,
                     sources,
-                )
+                ),
+                provider=llm_provider,
             )
             if llm_result.get("ok"):
                 return (
                     f"{graph_summary}\n\n{llm_result['text']}",
-                    "grafo-similaridade+ollama",
+                    f"grafo-similaridade+{llm_result.get('provider', 'llm')}",
                     llm_result.get("model"),
                     sources,
+                    None,
                 )
-        except Exception:
-            pass
+            llm_error = llm_result.get("error")
+        except Exception as exc:
+            llm_error = str(exc)
+    else:
+        llm_error = None
 
     lines = [
         f"Documentos mais similares a {source_doc.filename}:",
@@ -425,7 +435,7 @@ def _summarize_similar_documents(
         )
         if excerpt:
             lines.append(f"   Trecho inicial: {excerpt}...")
-    return "\n".join(lines), "grafo-similaridade", None, sources
+    return "\n".join(lines), "grafo-similaridade", None, sources, llm_error
 
 
 def _rerank(
@@ -558,7 +568,11 @@ def _build_prompt(question: str, results: list[dict]) -> str:
     )
 
 
-def _build_answer(question: str, results: list[dict]) -> tuple[str, str, str | None]:
+def _build_answer(
+    question: str,
+    results: list[dict],
+    llm_provider: str | None = None,
+) -> tuple[str, str, str | None, str | None]:
     useful = [item for item in results if item["score"] > 0]
     if not useful:
         return (
@@ -566,16 +580,18 @@ def _build_answer(question: str, results: list[dict]) -> tuple[str, str, str | N
             "para responder com confiança.",
             "extrativo",
             None,
+            None,
         )
 
     try:
-        from service.llm_service import generate_with_ollama
+        from service.llm_service import generate_llm_response
 
-        llm_result = generate_with_ollama(_build_prompt(question, useful))
+        llm_result = generate_llm_response(_build_prompt(question, useful), provider=llm_provider)
         if llm_result.get("ok"):
-            return llm_result["text"], "ollama", llm_result.get("model")
-    except Exception:
-        pass
+            return llm_result["text"], llm_result.get("provider", "llm"), llm_result.get("model"), None
+        llm_error = llm_result.get("error")
+    except Exception as exc:
+        llm_error = str(exc)
 
     parts = [
         "Resposta baseada nos trechos mais relevantes encontrados nos documentos:",
@@ -585,7 +601,7 @@ def _build_answer(question: str, results: list[dict]) -> tuple[str, str, str | N
         if len(item["text"]) > 420:
             excerpt += "..."
         parts.append(f"{idx}. {excerpt}")
-    return "\n\n".join(parts), "extrativo", None
+    return "\n\n".join(parts), "extrativo", None, llm_error
 
 
 def _cluster_doc_ids(db, cluster_id: str | None) -> set | None:
@@ -668,6 +684,7 @@ def ask_documents(
     top_k: int = 5,
     cluster_id: str | None = None,
     expand_neighbors: bool = False,
+    llm_provider: str | None = None,
 ) -> dict:
     question = (question or "").strip()
     if not question:
@@ -701,6 +718,7 @@ def ask_documents(
         allowed_doc_ids,
         top_k,
         similarity_threshold,
+        llm_provider,
     )
     if similarity_answer:
         return similarity_answer
@@ -748,6 +766,7 @@ def ask_documents(
             "cluster_id": cluster_id,
             "expand_neighbors": expand_neighbors,
             "chunks_indexed": len(chunks),
+            "llm_error": None,
         }
     related_documents = []
     if expand_neighbors:
@@ -785,7 +804,11 @@ def ask_documents(
                 )
 
     results = results[:top_k]
-    answer, answer_mode, llm_model = _build_answer(question, results)
+    answer, answer_mode, llm_model, llm_error = _build_answer(
+        question,
+        results,
+        llm_provider=llm_provider,
+    )
     return {
         "question": question,
         "answer": answer,
@@ -798,4 +821,5 @@ def ask_documents(
         "cluster_id": cluster_id,
         "expand_neighbors": expand_neighbors,
         "chunks_indexed": len(chunks),
+        "llm_error": llm_error,
     }

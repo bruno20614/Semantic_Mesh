@@ -24,7 +24,7 @@
                 <div class="sm-alert sm-alert-error">{{ error }}</div>
             {% endif %}
 
-            <form method="POST" action="/analysis/new">
+            <form method="POST" action="/analysis/new" id="analysis-create-form">
                 <div class="sm-form-group">
                     <label class="sm-label">Organização</label>
                     <select name="org_id" required class="sm-input sm-select">
@@ -55,11 +55,38 @@
                 </div>
 
                 <div style="display:flex; gap:0.75rem; margin-top:1rem;">
-                    <button type="submit" class="sm-btn sm-btn-primary" style="flex:1;">Criar Análise</button>
+                    <button type="submit" class="sm-btn sm-btn-primary" style="flex:1;" id="analysis-create-btn">
+                        <span id="analysis-create-label">Criar Análise</span>
+                        <span id="analysis-create-loading" style="display:none;">Criando análise...</span>
+                    </button>
                     <a href="/analysis" class="sm-btn sm-btn-gray" style="flex:1; text-align:center;">Cancelar</a>
+                </div>
+
+                <div id="analysis-create-message" class="sm-alert sm-alert-warn" style="display:none; margin-top:1rem;">
+                    Criando análise e calculando similaridade entre documentos. Isso pode levar alguns segundos.
                 </div>
             </form>
         </div>
     </div>
+    <script>
+        const analysisForm = document.getElementById('analysis-create-form');
+        const analysisButton = document.getElementById('analysis-create-btn');
+        const analysisLabel = document.getElementById('analysis-create-label');
+        const analysisLoading = document.getElementById('analysis-create-loading');
+        const analysisMessage = document.getElementById('analysis-create-message');
+
+        if (analysisForm) {
+            analysisForm.addEventListener('submit', () => {
+                if (analysisButton) {
+                    analysisButton.disabled = true;
+                    analysisButton.style.opacity = '0.75';
+                    analysisButton.style.cursor = 'wait';
+                }
+                if (analysisLabel) analysisLabel.style.display = 'none';
+                if (analysisLoading) analysisLoading.style.display = 'inline';
+                if (analysisMessage) analysisMessage.style.display = 'block';
+            });
+        }
+    </script>
 </body>
 </html>

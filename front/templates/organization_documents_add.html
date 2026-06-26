@@ -16,7 +16,7 @@
     </nav>
     <div class="container mx-auto px-6">
         <div class="sm-card sm-card-sm sm-fade mx-auto">
-            <h2 class="sm-title">Adicionar Documento</h2>
+            <h2 class="sm-title">Adicionar Documentos</h2>
             <p style="color:#6b7280; font-size:0.875rem; margin-bottom:1.25rem;">Organização: <strong>{{ org.name }}</strong></p>
 
             {% if message %}
@@ -24,21 +24,27 @@
             {% endif %}
 
             <form method="post" enctype="multipart/form-data">
-                <div id="dropzone" style="border: 2px dashed #7c3aed; border-radius: 1rem; background: #faf5ff; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;" onclick="document.getElementById('file').click()" ondragover="event.preventDefault(); this.style.background='#ede9fe';" ondragleave="this.style.background='#faf5ff';" ondrop="event.preventDefault(); this.style.background='#faf5ff'; document.getElementById('file').files = event.dataTransfer.files; updateLabel();">
+                <div id="dropzone" style="border: 2px dashed #7c3aed; border-radius: 1rem; background: #faf5ff; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;" onclick="document.getElementById('files').click()" ondragover="event.preventDefault(); this.style.background='#ede9fe';" ondragleave="this.style.background='#faf5ff';" ondrop="event.preventDefault(); this.style.background='#faf5ff'; document.getElementById('files').files = event.dataTransfer.files; updateLabel();">
                     <div style="font-size:2rem; margin-bottom:0.5rem;"></div>
-                    <span id="drop-label" style="color:#7c3aed; font-weight:700;">Arraste ou clique para selecionar</span>
+                    <span id="drop-label" style="color:#7c3aed; font-weight:700;">Arraste ou clique para selecionar um ou mais arquivos</span>
                     <p style="color:#9ca3af; font-size:0.8rem; margin-top:0.4rem;">PDF, DOCX, TXT, PNG, JPG, JPEG, TIFF, BMP, WEBP</p>
-                    <input type="file" name="file" id="file" required accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp" style="display:none;" onchange="updateLabel()">
+                    <input type="file" name="files" id="files" required multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp" style="display:none;" onchange="updateLabel()">
                 </div>
-                <button type="submit" class="sm-btn sm-btn-green" style="width:100%; padding:0.7rem; font-size:1rem;">Enviar</button>
+                <button type="submit" class="sm-btn sm-btn-green" style="width:100%; padding:0.7rem; font-size:1rem;">Enviar documentos</button>
             </form>
         </div>
     </div>
     <script>
     function updateLabel() {
-        const f = document.getElementById('file');
+        const f = document.getElementById('files');
         const lbl = document.getElementById('drop-label');
-        if (f.files && f.files[0]) lbl.textContent = f.files[0].name;
+        if (f.files && f.files.length === 1) {
+            lbl.textContent = f.files[0].name;
+        } else if (f.files && f.files.length > 1) {
+            const names = Array.from(f.files).slice(0, 3).map(file => file.name).join(', ');
+            const extra = f.files.length > 3 ? ` +${f.files.length - 3}` : '';
+            lbl.textContent = `${f.files.length} arquivos selecionados: ${names}${extra}`;
+        }
     }
     </script>
 </body>

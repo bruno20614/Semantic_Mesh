@@ -289,7 +289,12 @@ def organization_documents_add(request: Request, org_id: UUID, message: str = No
     return templates.TemplateResponse("organization_documents_add.html", {"request": request, "org": org, "message": message, "success": success})
 
 @router.post("/organizations/{org_id}/documents/add", response_class=HTMLResponse)
-def organization_documents_add_post(request: Request, org_id: UUID, file: UploadFile = File(...)):
+def organization_documents_add_post(
+    request: Request,
+    org_id: UUID,
+    files: List[UploadFile] | None = File(None),
+    file: UploadFile | None = File(None),
+):
     if 'user_id' not in request.session:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/", status_code=302)
@@ -309,45 +314,81 @@ def organization_documents_add_post(request: Request, org_id: UUID, file: Upload
     if not org:
         db.close()
         return templates.TemplateResponse("organization_documents_add.html", {"request": request, "org": None, "message": "Organização não encontrada.", "success": False})
+    selected_files = files or ([file] if file else [])
+    if not selected_files:
+        db.close()
+        return templates.TemplateResponse("organization_documents_add.html", {
+            "request": request,
+            "org": org,
+            "message": "Selecione pelo menos um documento.",
+            "success": False,
+        })
     try:
         upload_dir = os.path.join("..", "front", "uploads", str(org_id))
         os.makedirs(upload_dir, exist_ok=True)
-        file_location = os.path.join(upload_dir, file.filename)
-        with open(file_location, "wb") as f:
-            f.write(file.file.read())
         from datetime import datetime
-        doc = Document(organization_id=org_id, filename=file.filename, file_type=file.content_type, created_at=datetime.utcnow())
-        db.add(doc)
-        db.commit()
-        db.refresh(doc)
-        doc_file = DocumentFile(document_id=doc.id, file_path=file_location, file_hash="", uploaded_at=datetime.utcnow())
-        db.add(doc_file)
-        # --- Extração de texto do documento ---
-        raw_text = ""
-        try:
-            if file.filename.lower().endswith('.txt'):
-                with open(file_location, 'r', encoding='utf-8') as txtf:
-                    raw_text = txtf.read()
-            elif file.filename.lower().endswith('.pdf'):
+        from service.orm import DocumentContent
+
+        saved_count = 0
+        errors = []
+        for file in selected_files:
+            if not file.filename:
+                continue
+
+            safe_filename = os.path.basename(file.filename)
+            file_location = os.path.join(upload_dir, safe_filename)
+            try:
+                with open(file_location, "wb") as f:
+                    f.write(file.file.read())
+
+                doc = Document(
+                    organization_id=org_id,
+                    filename=safe_filename,
+                    file_type=file.content_type,
+                    created_at=datetime.utcnow(),
+                )
+                db.add(doc)
+                db.commit()
+                db.refresh(doc)
+                doc_file = DocumentFile(
+                    document_id=doc.id,
+                    file_path=file_location,
+                    file_hash="",
+                    uploaded_at=datetime.utcnow(),
+                )
+                db.add(doc_file)
+
+                raw_text = ""
                 try:
-                    from PyPDF2 import PdfReader
-                    reader = PdfReader(file_location)
-                    raw_text = "\n".join(page.extract_text() or '' for page in reader.pages)
+                    if safe_filename.lower().endswith('.txt'):
+                        with open(file_location, 'r', encoding='utf-8') as txtf:
+                            raw_text = txtf.read()
+                    elif safe_filename.lower().endswith('.pdf'):
+                        try:
+                            from PyPDF2 import PdfReader
+                            reader = PdfReader(file_location)
+                            raw_text = "\n".join(page.extract_text() or '' for page in reader.pages)
+                        except Exception as e:
+                            raw_text = f"Erro ao extrair PDF: {str(e)}"
+                    elif safe_filename.lower().endswith('.docx'):
+                        try:
+                            import docx
+                            docx_file = docx.Document(file_location)
+                            raw_text = "\n".join([p.text for p in docx_file.paragraphs])
+                        except Exception as e:
+                            raw_text = f"Erro ao extrair DOCX: {str(e)}"
                 except Exception as e:
-                    raw_text = f"Erro ao extrair PDF: {str(e)}"
-            elif file.filename.lower().endswith('.docx'):
-                try:
-                    import docx
-                    docx_file = docx.Document(file_location)
-                    raw_text = "\n".join([p.text for p in docx_file.paragraphs])
-                except Exception as e:
-                    raw_text = f"Erro ao extrair DOCX: {str(e)}"
-        except Exception as e:
-            raw_text = f"Erro ao extrair texto: {str(e)}"
-        if raw_text:
-            from service.orm import DocumentContent
-            doc_content = DocumentContent(document_id=doc.id, raw_text=raw_text)
-            db.add(doc_content)
+                    raw_text = f"Erro ao extrair texto: {str(e)}"
+                if raw_text:
+                    doc_content = DocumentContent(document_id=doc.id, raw_text=raw_text)
+                    db.add(doc_content)
+                saved_count += 1
+            except Exception as e:
+                db.rollback()
+                errors.append(f"{safe_filename}: {str(e)}")
+
+        if saved_count == 0 and errors:
+            raise Exception("; ".join(errors))
         db.commit()
         db.close()
         from fastapi.responses import RedirectResponse

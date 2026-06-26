@@ -431,6 +431,7 @@ def ask_analysis_form(request: Request, run_id: str):
         "clusters": clusters,
         "selected_cluster_id": "",
         "expand_neighbors": False,
+        "llm_provider": "env",
     })
 
 
@@ -441,6 +442,7 @@ def ask_analysis(
     question: str = Form(...),
     cluster_id: str = Form(""),
     expand_neighbors: str | None = Form(None),
+    llm_provider: str = Form("env"),
 ):
     if 'user_id' not in request.session:
         return RedirectResponse("/", status_code=302)
@@ -475,12 +477,14 @@ def ask_analysis(
         from service.rag_service import ask_documents
         selected_cluster_id = cluster_id if cluster_id and cluster_id != "all" else None
         expand_neighbors_enabled = expand_neighbors == "on"
+        selected_llm_provider = llm_provider if llm_provider in {"ollama", "openai"} else None
         result = ask_documents(
             db,
             run_uuid,
             question,
             cluster_id=selected_cluster_id,
             expand_neighbors=expand_neighbors_enabled,
+            llm_provider=selected_llm_provider,
         )
         error = result.get("error")
     except Exception as exc:
@@ -504,6 +508,7 @@ def ask_analysis(
         "clusters": clusters,
         "selected_cluster_id": cluster_id,
         "expand_neighbors": expand_neighbors == "on",
+        "llm_provider": llm_provider,
     })
 
 
